@@ -855,6 +855,7 @@ if (authState === 'owner' || authState === '1') {
             <div class="form-field"><label>Patient name</label><input type="text" id="ph-f-name" placeholder="Full name"></div>
             <div class="form-field"><label>CIN</label><input type="text" id="ph-f-cin" placeholder="CIN number"></div>
             <div class="form-field"><label>Auth date</label><input type="text" id="ph-f-auth" placeholder="MM/DD/YYYY"></div>
+            <div class="form-field"><label>House</label><select id="ph-f-house" style="padding:8px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:inherit;font-size:13px;color:var(--text);background:#fff"><option value="">— Select house —</option><option value="Leedy House">Leedy House</option><option value="Hazel House">Hazel House</option></select></div>
             <div style="display:flex;gap:8px;padding-top:2px">
               <button class="btn btn-green" onclick="confirmAddPHPatient()">Add to Agreement &amp; Invoice Tracker</button>
               <button class="btn btn-gray" onclick="togglePHAddForm()">Cancel</button>
@@ -5229,8 +5230,33 @@ function renderPH() {
     const phOwedDisplay  = phPayments.phOwed      != null ? '$'+parseFloat(phPayments.phOwed).toLocaleString()      : '—';
     const flRetDisplay   = phPayments.flRetained  != null ? '$'+parseFloat(phPayments.flRetained).toLocaleString()  : '—';
     const opExDisplay    = phPayments.operatingExpense != null ? '$'+parseFloat(phPayments.operatingExpense).toLocaleString() : '—';
+
+    // House revenue breakdown
+    const leedyRows = rows.filter(r => r.house === 'Leedy House');
+    const hazelRows = rows.filter(r => r.house === 'Hazel House');
+    const unassignedRows = rows.filter(r => !r.house);
+    const houseTotal = (arr) => arr.reduce((sum, r) => sum + getPHDisplayTotal(r), 0);
+    const leedyTotal = houseTotal(leedyRows);
+    const hazelTotal = houseTotal(hazelRows);
+    const unassignedTotal = houseTotal(unassignedRows);
+    const houseBannerHtml = `<div style="background:linear-gradient(135deg,#0f2035,#1a3050);border-radius:10px;padding:16px 20px;box-shadow:0 4px 16px rgba(15,32,53,0.2);grid-column:1/-1">
+      <div style="font-size:14px;color:#d0e4f7;font-weight:700;letter-spacing:0.04em;margin-bottom:12px">🏠 House Revenue — ${phActiveMonth}</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:130px;background:linear-gradient(135deg,rgba(252,231,243,0.15),rgba(249,168,212,0.1));border:1.5px solid rgba(249,168,212,0.4);border-radius:8px;padding:10px 14px">
+          <div style="font-size:11px;color:#f9a8d4;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">L &nbsp;Leedy House</div>
+          <div style="font-size:22px;font-weight:700;color:#fce7f3">$${leedyTotal.toLocaleString()}</div>
+          <div style="font-size:10px;color:#f9a8d4;margin-top:2px;opacity:0.8">${leedyRows.length} patient${leedyRows.length!==1?'s':''}</div>
+        </div>
+        <div style="flex:1;min-width:130px;background:linear-gradient(135deg,rgba(219,234,254,0.15),rgba(147,197,253,0.1));border:1.5px solid rgba(147,197,253,0.4);border-radius:8px;padding:10px 14px">
+          <div style="font-size:11px;color:#93c5fd;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">H &nbsp;Hazel House</div>
+          <div style="font-size:22px;font-weight:700;color:#dbeafe">$${hazelTotal.toLocaleString()}</div>
+          <div style="font-size:10px;color:#93c5fd;margin-top:2px;opacity:0.8">${hazelRows.length} patient${hazelRows.length!==1?'s':''}</div>
+        </div>
+      </div>
+    </div>`;
+
     statsEl.style.gridTemplateColumns = 'repeat(4,1fr)';
-    statsEl.innerHTML = [
+    statsEl.innerHTML = houseBannerHtml + [
       {label:'Gross (MasterCare)', val:'$'+gross.toLocaleString(), color:'#2558a8'},
       {label:'Operating Expense',  val:opExDisplay,                color:'#c2460a'},
       {label:'PH Owed',            val:phOwedDisplay,              color:'#c2460a'},
@@ -5369,6 +5395,9 @@ function renderPHInvoices() {
       </td>
       <td class="name-cell">
         <div style="display:flex;align-items:center;gap:6px">
+          <span onclick="cyclePHHouse(${idx});event.stopPropagation()" title="${r.house||'Click to assign house'}"
+            style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:3px;font-size:9px;font-weight:800;cursor:pointer;transition:all 0.15s;flex-shrink:0;user-select:none;${r.house==='Leedy House'?'background:#fce7f3;color:#be185d;border:1.5px solid #f9a8d4':r.house==='Hazel House'?'background:#dbeafe;color:#1d4ed8;border:1.5px solid #93c5fd':'background:#f1f5f9;color:#cbd5e1;border:1.5px solid #e2e8f0'}"
+          >${r.house==='Leedy House'?'L':r.house==='Hazel House'?'H':'·'}</span>
           <span title="${dotTitle}" style="width:9px;height:9px;border-radius:50%;flex-shrink:0;background:${dotColor};display:inline-block;box-shadow:0 0 4px ${dotGlow}"></span>
           <span contenteditable="true"
             onblur="PH_INVOICE_DATA_ARR[${idx}].name=this.textContent.trim();markUnsaved();renderPH()"
@@ -5458,6 +5487,17 @@ function removePHInvoiceRow(idx) {
   markUnsaved(); autoSyncPHEligibility(); renderPH();
 }
 
+function cyclePHHouse(idx) {
+  const r = PH_INVOICE_DATA_ARR[idx];
+  if (!r) return;
+  const cycle = ['', 'Leedy House', 'Hazel House'];
+  const current = r.house || '';
+  const next = cycle[(cycle.indexOf(current) + 1) % cycle.length];
+  PH_INVOICE_DATA_ARR[idx].house = next;
+  markUnsaved();
+  renderPH();
+}
+
 function phHeaderAddClick() {
   // Opens the correct add form based on which inner tab is active
   if (phInnerTab === 'agreements') {
@@ -5483,6 +5523,7 @@ function confirmAddPHPatient() {
   if (!name) { showToast('Patient name is required', 'error'); return; }
   const cin = (document.getElementById('ph-f-cin').value || '').trim();
   const auth = (document.getElementById('ph-f-auth').value || '').trim();
+  const house = (document.getElementById('ph-f-house')?.value || '').trim();
 
   // Add to PH Agreement Tracker
   PH_TRACKER.push({
@@ -5491,7 +5532,8 @@ function confirmAddPHPatient() {
     'Auth Date': auth || 'Agreement pending',
     '6 Month Date': '',
     'Agreement Exp.': 'pending',
-    'Comments': ''
+    'Comments': '',
+    'House': house
   });
 
   // Add to current month Invoice Dashboard
@@ -5509,11 +5551,12 @@ function confirmAddPHPatient() {
     priorStart: '',
     priorEnd: '',
     priorDays: 0,
-    priorTotal: 0
+    priorTotal: 0,
+    house: house
   });
 
   // Clear form
-  ['ph-f-name','ph-f-cin','ph-f-auth'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  ['ph-f-name','ph-f-cin','ph-f-auth','ph-f-house'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   const form = document.getElementById('ph-add-form');
   if (form) form.classList.remove('visible');
   // Auto-add to PH eligibility if not already there
