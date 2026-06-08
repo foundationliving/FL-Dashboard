@@ -2440,8 +2440,8 @@ function updateNextInvoice() {
   // Scan both FL and PH arrays so last used / next number is always accurate
   const allNums = [...INVOICE_DATA_ARR, ...PH_INVOICE_DATA_ARR]
     .map(r => r.invoice)
-    .filter(inv => inv && /^FL-\d+$/.test(inv))
-    .map(inv => parseInt(inv.replace('FL-', '')))
+    .filter(inv => inv && /^FL-\d+(PH)?$/.test(inv))
+    .map(inv => parseInt(inv.replace('FL-', '').replace('PH','')))
     .filter(n => !isNaN(n));
   if (allNums.length === 0) {
     document.getElementById('last-inv-num').textContent = '—';
@@ -2606,8 +2606,8 @@ function getNextInvoiceNum() {
   // Scan BOTH FL and Phoenix Haven arrays to prevent duplicate invoice numbers
   const allNums = [...INVOICE_DATA_ARR, ...PH_INVOICE_DATA_ARR]
     .map(r => r.invoice)
-    .filter(inv => inv && /^FL-\d+$/.test(inv))
-    .map(inv => parseInt(inv.replace('FL-', '')))
+    .filter(inv => inv && /^FL-\d+(PH)?$/.test(inv))
+    .map(inv => parseInt(inv.replace('FL-', '').replace('PH','')))
     .filter(n => !isNaN(n));
   return allNums.length > 0 ? Math.max(...allNums) + 1 : 1068;
 }
@@ -3862,6 +3862,7 @@ function renderEligibility() {
           onmouseover="this.style.background='#e8f0fe';this.style.color='#2558a8'"
           onmouseout="this.style.background='none';this.style.color='#94a3b8'">⧉</button>
       </div>
+      ${(!r.cin || ['unknown','n/a','—','-','?'].includes((r.cin||'').toLowerCase().trim())) ? (() => { const m = findTrackerMatch(r.name, ''); const mCin = (m&&m['CIN']||'').trim(); const cinInvalidWords = ['unknown','pending','n/a','none','tbd','na','yes','no']; const cinValid = /^[a-zA-Z0-9]{7,}$/.test(mCin) && !cinInvalidWords.includes(mCin.toLowerCase()); return m && cinValid ? `<div style="font-size:10px;color:#2558a8;margin-top:3px;cursor:pointer;display:flex;align-items:center;gap:3px" onclick="event.stopPropagation();saveEligCin(${eligIdx},'${(m['CIN']||'').replace(/'/g,String.fromCharCode(39))}');this.parentElement.querySelector('input').value='${(m['CIN']||'').replace(/'/g,String.fromCharCode(39))}';this.style.display='none';" title="Click to apply">💡 ${m['CIN']} (${m['Patient Name']||'Unknown'}) — click to apply</div>` : ''; })() : ''}
     </td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(r.dateChecked)}</td>
     <td onclick="event.stopPropagation()">
@@ -4116,6 +4117,62 @@ function findTrackerMatch(name, cin) {
     if (tp[tp.length-1] !== lastName) return false;
     return nameParts[0].slice(0,3) === tp[0].slice(0,3);
   });
+}
+
+function findPHTrackerMatch(name, cin) {
+  const nameLower = (name||'').toLowerCase().trim();
+  const nameParts = nameLower.split(' ').filter(Boolean);
+  const lastName = nameParts[nameParts.length-1];
+  const firstName = nameParts[0];
+  const cinClean = (cin||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,'');
+
+  const searchIn = [...(PH_TRACKER||[]), ...(TRACKER||[])];
+
+  // Score each tracker record and return best match above threshold
+  let bestMatch = null, bestScore = 0;
+
+  searchIn.forEach(r => {
+    if (!r['Patient Name']) return;
+    let score = 0;
+
+    // CIN exact match — strongest signal
+    if (cinClean && r['CIN']) {
+      const tCin = (r['CIN']||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,'');
+      if (tCin && tCin === cinClean) { score = 100; }
+    }
+
+    if (score < 100) {
+      const tn = (r['Patient Name']||'').toLowerCase().trim();
+      const tp = tn.split(' ').filter(Boolean);
+      const tLast = tp[tp.length-1];
+      const tFirst = tp[0];
+
+      // Exact full name
+      if (tn === nameLower) { score = 90; }
+      // Last name matches exactly
+      else if (tLast === lastName) {
+        score += 40;
+        // First name exact
+        if (tFirst === firstName) score += 40;
+        // First name starts with same 3 chars
+        else if (firstName.slice(0,3) === tFirst.slice(0,3)) score += 25;
+        // First name starts with same letter
+        else if (firstName[0] === tFirst[0]) score += 10;
+        // Any part of input name appears in tracker name
+        else if (nameParts.some(p => p.length > 2 && tp.includes(p))) score += 20;
+      }
+      // Last name starts with same 4 chars (catches Braley/Braly, Philips/Phillips)
+      else if (lastName.slice(0,4) === tLast.slice(0,4) && lastName.length > 3) {
+        score += 25;
+        if (firstName.slice(0,3) === tFirst.slice(0,3)) score += 20;
+      }
+    }
+
+    if (score > bestScore) { bestScore = score; bestMatch = r; }
+  });
+
+  // Require a minimum score to avoid wild guesses
+  return bestScore >= 50 ? bestMatch : null;
 }
 
 function getAutoFirstDay(name, cin, month) {
@@ -4775,7 +4832,7 @@ function safeParseDate(d) {
 }
 function fmtDate(d){if(!d)return '—';var x=safeParseDate(d);if(isNaN(x))return d;return(x.getMonth()+1)+'/'+x.getDate()+'/'+String(x.getFullYear()).slice(2);}
 function daysBetween(s,e){var a=safeParseDate(s),b=safeParseDate(e);if(isNaN(a)||isNaN(b))return '—';return Math.round((b-a)/86400000)+1;}
-function addDays(d,n){var x=safeParseDate(d);if(isNaN(x))return '—';x.setDate(x.getDate()+n);return(x.getMonth()+1)+'/'+x.getDate()+'/'+String(x.getFullYear()).slice(2);}
+function addDays(d,n){var x=safeParseDate(d);if(isNaN(x))return '—';x.setDate(x.getDate()+n);return(x.getMonth()+1)+'/'+x.getDate()+'/'+x.getFullYear();}
 function closeInvoice(){
   document.getElementById('invoice-overlay').style.display='none';
   const badge = document.getElementById('printed-badge');
@@ -5584,7 +5641,7 @@ function selectSubcontractor(id) {
 }
 
 function openPHAssignModal() {
-  const eligible = PH_INVOICE_DATA_ARR.filter(r => r.month===phActiveMonth && r.name && (!r.invoice||!r.invoice.startsWith('FL-')));
+  const eligible = PH_INVOICE_DATA_ARR.filter(r => r.month===phActiveMonth && r.name && (!r.invoice||!/^FL-\d+(PH)?$/.test(r.invoice)));
   if (!eligible.length) { showToast('All patients already have invoice numbers!'); return; }
   const nextNum = getNextInvoiceNum();
   document.getElementById('ph-assign-month').textContent = phActiveMonth;
@@ -5625,7 +5682,7 @@ function confirmPHAssign() {
   eligible.forEach((r,i) => {
     const cb = document.getElementById('ph_ai_'+i);
     if (cb && cb.checked) {
-      r.invoice = 'FL-' + next;
+      r.invoice = 'FL-' + next + 'PH';
       if (!r.payment || !r.payment.includes('\u2713')) { r.payment = ''; }
       next++; count++;
     }
@@ -5669,7 +5726,7 @@ function confirmPHCopy() {
 
 // ── PH Print All ──────────────────────────────────────────────────────────────
 function openPHPrintAllModal() {
-  const rows = PH_INVOICE_DATA_ARR.filter(r => r.month===phActiveMonth && r.invoice && /^FL-\d+$/.test(r.invoice));
+  const rows = PH_INVOICE_DATA_ARR.filter(r => r.month===phActiveMonth && r.invoice && /^FL-\d+(PH)?$/.test(r.invoice));
   if (!rows.length) { showToast('No invoiced patients this month','error'); return; }
   document.getElementById('ph-print-month').textContent = phActiveMonth;
   const list = document.getElementById('ph-print-list');
@@ -5747,6 +5804,7 @@ function renderPHEligibility() {
             onblur="this.style.border='1px solid transparent';this.style.background='transparent'">
           <button onclick="copyCIN(this.previousElementSibling.value)" title="Copy CIN" style="flex-shrink:0;background:none;border:none;cursor:pointer;padding:2px 4px;border-radius:4px;font-size:12px;color:#94a3b8" onmouseover="this.style.background='#e8f0fe';this.style.color='#2558a8'" onmouseout="this.style.background='none';this.style.color='#94a3b8'">⧉</button>
         </div>
+        ${(!r.cin || ['unknown','n/a','—','-','?'].includes((r.cin||'').toLowerCase().trim())) ? (() => { const m = findPHTrackerMatch(r.name, ''); const mCin = (m&&m['CIN']||'').trim(); const cinInvalidWords = ['unknown','pending','n/a','none','tbd','na','yes','no']; const cinValid = /^[a-zA-Z0-9]{7,}$/.test(mCin) && !cinInvalidWords.includes(mCin.toLowerCase()); return m && cinValid ? `<div style="font-size:10px;color:#2558a8;margin-top:3px;cursor:pointer;display:flex;align-items:center;gap:3px" onclick="PH_ELIGIBILITY_DATA[${i}].cin='${(m['CIN']||'').replace(/'/g,String.fromCharCode(39))}';markUnsaved();autoSyncPHEligibility();this.parentElement.querySelector('input').value='${(m['CIN']||'').replace(/'/g,String.fromCharCode(39))}';this.style.display='none';" title="Click to apply">💡 ${m['CIN']} (${m['Patient Name']||'Unknown'}) — click to apply</div>` : ''; })() : ''}
       </td>
       <td style="font-size:12px;color:var(--muted)">${r.dateChecked ? formatDate(r.dateChecked) : '—'}</td>
       <td>
