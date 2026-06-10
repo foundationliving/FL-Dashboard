@@ -4099,6 +4099,35 @@ function editPHActualPaid(idx, invoiced, current) {
 
 
 
+function fmtAgDate(d) {
+  if (!d) return '';
+  const s = String(d).trim();
+  // Strip time component if present (e.g. 2026-07-20T07:00:00.000Z)
+  const clean = s.includes('T') ? s.split('T')[0] : s;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) { const p=clean.split('-'); return parseInt(p[1])+'/'+parseInt(p[2])+'/'+p[0]; }
+  // Try general parse
+  const dt = safeParseDate(clean);
+  if (!isNaN(dt)) return (dt.getMonth()+1)+'/'+dt.getDate()+'/'+dt.getFullYear();
+  // Not a parseable date (e.g. "Agreement pending") — return as-is
+  return s;
+}
+function agreementTooltip(name, cin) {
+  const m = findTrackerMatch(name, cin);
+  if (!m) return 'No agreement found';
+  const auth = fmtAgDate(m['Auth Date']);
+  const exp = fmtAgDate(m['Agreement Exp.']);
+  if (!auth && !exp) return 'Agreement on file — no dates';
+  return 'Agreement: ' + (auth||'?') + ' \u2192 ' + (exp||'?');
+}
+function phAgreementTooltip(name, cin) {
+  const m = phFindTrackerMatch(name, cin);
+  if (!m) return 'No agreement found';
+  const auth = fmtAgDate(m['Auth Date']);
+  const exp = fmtAgDate(m['Agreement Exp.']);
+  if (!auth && !exp) return 'Agreement on file — no dates';
+  return 'Agreement: ' + (auth||'?') + ' \u2192 ' + (exp||'?');
+}
+
 function findTrackerMatch(name, cin) {
   const nameLower = (name||'').toLowerCase().trim();
   const nameParts = nameLower.split(' ');
@@ -4383,6 +4412,7 @@ function renderInvoices() {
         ></span>
         <span contenteditable="true"
           onblur="saveInvName(${INVOICE_DATA_ARR.indexOf(r)}, this.textContent)"
+          title="${agreementTooltip(r.name, r.cin)}"
           style="outline:none;border-radius:4px;padding:1px 3px;cursor:text;min-width:20px"
           onmouseover="this.style.background='#f0f7ed'" 
           onmouseout="if(document.activeElement!==this)this.style.background=''"
@@ -5459,6 +5489,7 @@ function renderPHInvoices() {
           <span contenteditable="true"
             onblur="PH_INVOICE_DATA_ARR[${idx}].name=this.textContent.trim();markUnsaved();renderPH()"
             onpaste="event.preventDefault();document.execCommand('insertText',false,event.clipboardData.getData('text/plain').trim())"
+            title="${phAgreementTooltip(r.name, r.cin)}"
             style="display:inline-block;outline:none;border-radius:4px;padding:2px 4px;cursor:text;font-weight:500;transition:background 0.15s"
             onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'"
           >${r.name||''}</span>
