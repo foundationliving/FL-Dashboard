@@ -5435,8 +5435,8 @@ function renderPHInvoices() {
     const dotGlow=agStatus==='active'?'rgba(34,197,94,0.6)':agStatus==='expiring'?'rgba(234,179,8,0.6)':'rgba(239,68,68,0.5)';
     const dotTitle=agStatus==='active'?'Agreement active':agStatus==='expiring'?'Expires this month':'No active agreement';
     const {firstDay:effFirst,lastDay:effLast}=getPHEffectiveDates(r);
-    const shownFirst=(agStatus==='active'||agStatus==='expiring')?(r.firstDay?formatDate(r.firstDay):(effFirst||'—')):'—';
-    const shownLast=(agStatus==='active'||agStatus==='expiring')?(r.lastDay?formatDate(r.lastDay):(getLastDayFromPH(r.name,r.cin,r.month)||(effLast||'—'))):'—';
+    const shownFirst=r.firstDay?formatDate(r.firstDay):((agStatus==='active'||agStatus==='expiring')?(effFirst||'—'):'—');
+    const shownLast=r.lastDay?formatDate(r.lastDay):((agStatus==='active'||agStatus==='expiring')?(getLastDayFromPH(r.name,r.cin,r.month)||(effLast||'—')):'—');
     const total=getPHDisplayTotal(r);
     const hasInv=r.invoice&&/^FL-\d+$/.test(r.invoice);
     return `<tr${phMOClass}>
@@ -5480,7 +5480,13 @@ function renderPHInvoices() {
         style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);cursor:text"
         onmouseover="this.style.background='#e8f0fe'" onmouseout="if(document.activeElement!==this)this.style.background=''" style="transition:background 0.15s"
       >${r.cin||''}</span></td>
-      <td style="font-size:12px;color:var(--muted)">${shownFirst}</td>
+      <td style="font-size:12px;color:var(--muted)">
+        <span contenteditable="true"
+          onblur="PH_INVOICE_DATA_ARR[${idx}].firstDay=this.textContent.trim();markUnsaved();renderPHInvoices()"
+          style="display:block;outline:none;border-radius:4px;padding:2px 4px;cursor:text;min-width:30px"
+          onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'"
+        >${shownFirst}</span>
+      </td>
       <td style="font-size:12px;color:var(--muted)">
         <span contenteditable="true"
           onblur="PH_INVOICE_DATA_ARR[${idx}].lastDay=this.textContent.trim();markUnsaved();renderPHInvoices()"
@@ -6170,9 +6176,59 @@ function renderPHPayments() {
     </button>`;
   }).join('');
 
+  const expenses = p.expenses || [];
+  const leedyTotal = expenses.filter(e=>e.house==='Leedy House').reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const hazelTotal = expenses.filter(e=>e.house==='Hazel House').reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const leedyDeduct = leedyTotal;
+  const hazelDeduct = Math.round((hazelTotal * 2/3) * 100) / 100;
+  const totalDeduct = Math.round((leedyDeduct + hazelDeduct) * 100) / 100;
+
+  const expenseRows = expenses.map((e,i) => `
+    <div style="display:grid;grid-template-columns:90px 1fr 120px 90px 40px;gap:8px;align-items:center;margin-bottom:6px">
+      <input type="text" value="${e.date||''}" placeholder="5/1/2026"
+        style="font-size:12px;padding:5px 8px;border:0.5px solid var(--border);border-radius:6px;background:#f9f9f9;color:var(--text);font-family:inherit"
+        onchange="updatePHExpense('${month}',${i},'date',this.value)" onblur="updatePHExpense('${month}',${i},'date',this.value)">
+      <input type="text" value="${e.description||''}" placeholder="Description"
+        style="font-size:12px;padding:5px 8px;border:0.5px solid var(--border);border-radius:6px;background:#f9f9f9;color:var(--text);font-family:inherit"
+        onchange="updatePHExpense('${month}',${i},'description',this.value)" onblur="updatePHExpense('${month}',${i},'description',this.value)">
+      <select style="font-size:12px;padding:5px 8px;border:0.5px solid var(--border);border-radius:6px;background:#f9f9f9;color:var(--text);font-family:inherit"
+        onchange="updatePHExpense('${month}',${i},'house',this.value)">
+        <option${e.house==='Leedy House'?' selected':''}>Leedy House</option>
+        <option${e.house==='Hazel House'?' selected':''}>Hazel House</option>
+      </select>
+      <input type="number" min="0" step="0.01" value="${e.amount||''}" placeholder="0.00"
+        style="font-size:12px;padding:5px 8px;border:0.5px solid var(--border);border-radius:6px;background:#f9f9f9;color:var(--text);font-family:inherit"
+        onchange="updatePHExpense('${month}',${i},'amount',this.value)" oninput="updatePHExpense('${month}',${i},'amount',this.value)">
+      <button onclick="removePHExpense('${month}',${i})"
+        style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:16px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;flex-shrink:0"
+        onmouseover="this.style.background='#fee2e2';this.style.color='#dc2626'"
+        onmouseout="this.style.background='none';this.style.color='#94a3b8'">
+        <i class="ti ti-trash" aria-hidden="true"></i>
+      </button>
+    </div>`).join('');
+
+  const expenseSummary = totalDeduct > 0 ? `
+    <hr style="border:none;border-top:0.5px solid var(--border);margin:14px 0">
+    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px">Reimbursement to FL — deducted from Keith's payout</div>
+    ${leedyTotal > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--muted)">
+      <span><span style="display:inline-block;font-size:10px;font-weight:500;padding:2px 7px;border-radius:4px;background:#e6f1fb;color:#0c447c">Leedy</span> &nbsp;$${leedyTotal.toLocaleString()} → 100% owed</span>
+      <span style="color:#dc2626">−$${leedyDeduct.toLocaleString()}</span>
+    </div>` : ''}
+    ${hazelTotal > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--muted)">
+      <span><span style="display:inline-block;font-size:10px;font-weight:500;padding:2px 7px;border-radius:4px;background:#ede9fe;color:#3b1f8c">Hazel</span> &nbsp;$${hazelTotal.toLocaleString()} → 2/3 owed</span>
+      <span style="color:#dc2626">−$${hazelDeduct.toLocaleString()}</span>
+    </div>` : ''}
+    <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:500;padding-top:8px;margin-top:4px;border-top:0.5px solid var(--border)">
+      <span>Total FL-paid deduction from Keith's payout</span>
+      <span style="color:#dc2626">−$${totalDeduct.toLocaleString()}</span>
+    </div>` : '';
+
+
+
+
   el.innerHTML = `
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">${pills}</div>
-    <div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:18px 20px">
+    <div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:18px 20px;margin-bottom:12px">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
         <div style="flex:1;min-width:260px">
           <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:10px">${month} 2026</div>
@@ -6220,13 +6276,49 @@ function renderPHPayments() {
             <input type="text" value="${p.paymentDate||''}" placeholder=""
               style="border:1px solid var(--border);border-radius:6px;background:#f9f9f9;padding:6px 10px;font-size:13px;outline:none;width:160px;font-family:inherit;text-align:right;color:var(--text)"
               onchange="savePHPaymentField('${month}','paymentDate',this.value)"
-              onblur="savePHPaymentField('${month}','paymentDate',this.value)"
-            >
+              onblur="savePHPaymentField('${month}','paymentDate',this.value)">
           </div>
         </div>
       </div>
+    </div>
+
+    <div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:18px 20px">
+      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px">FL-paid expenses — ${month} 2026</div>
+      <div style="display:grid;grid-template-columns:90px 1fr 120px 90px 40px;gap:8px;margin-bottom:6px">
+        <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Date</div>
+        <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Description</div>
+        <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">House</div>
+        <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Amount</div>
+        <div></div>
+      </div>
+      ${expenseRows}
+      <button onclick="addPHExpense('${month}')"
+        style="font-size:12px;font-weight:500;padding:5px 14px;border:0.5px solid var(--border);border-radius:6px;background:var(--white);color:var(--text);cursor:pointer;font-family:inherit;margin-top:6px">
+        + Add expense
+      </button>
+      ${expenseSummary}
+    </div>
+
     </div>`;
 }
+
+function addPHExpense(month) {
+  if (!PH_PAYMENTS[month]) PH_PAYMENTS[month] = {};
+  if (!PH_PAYMENTS[month].expenses) PH_PAYMENTS[month].expenses = [];
+  PH_PAYMENTS[month].expenses.push({ date: '', description: '', house: 'Leedy House', amount: '' });
+  markUnsaved(); savePHPaymentsDirect(); renderPHPayments();
+}
+function removePHExpense(month, idx) {
+  if (!PH_PAYMENTS[month]||!PH_PAYMENTS[month].expenses) return;
+  PH_PAYMENTS[month].expenses.splice(idx, 1);
+  markUnsaved(); savePHPaymentsDirect(); renderPHPayments();
+}
+function updatePHExpense(month, idx, field, val) {
+  if (!PH_PAYMENTS[month]||!PH_PAYMENTS[month].expenses) return;
+  PH_PAYMENTS[month].expenses[idx][field] = val;
+  markUnsaved(); savePHPaymentsDirect();
+}
+
 
 function markPHPaid(month) {
   const today = new Date();
@@ -6312,6 +6404,16 @@ function getPHAgreementStatus(name, cin, month) {
       refDate = new Date();
     }
     if (expDate < refDate) return 'none';
+    // Check if agreement has actually started yet (Auth Date)
+    const authStr = match['Auth Date'];
+    if (authStr) {
+      const authDate = safeParseDate(authStr);
+      if (!isNaN(authDate)) {
+        // refDate is the 1st of the billing month; if auth date is after the END of that month, agreement hasn't started
+        const refMonthEnd = new Date(refDate.getFullYear(), refDate.getMonth()+1, 0);
+        if (authDate > refMonthEnd) return 'none';
+      }
+    }
     if (expDate.getMonth() === refDate.getMonth() && expDate.getFullYear() === refDate.getFullYear()) return 'expiring';
     return 'active';
   }
@@ -6932,6 +7034,30 @@ function printDisbursementStatement(month) {
   var phTotal   = (p.phOwed != null) ? parseFloat(p.phOwed) : opEx + phProfit;
   var flRetains = (p.flRetained != null) ? parseFloat(p.flRetained) : flProfit;
 
+  var expenses = p.expenses || [];
+  var leedyExp = expenses.filter(function(e){ return e.house === 'Leedy House'; });
+  var hazelExp = expenses.filter(function(e){ return e.house === 'Hazel House'; });
+  var leedyTotal = leedyExp.reduce(function(s,e){ return s + (parseFloat(e.amount)||0); }, 0);
+  var hazelTotal = hazelExp.reduce(function(s,e){ return s + (parseFloat(e.amount)||0); }, 0);
+  var leedyDeduct = leedyTotal;
+  var hazelDeduct = Math.round(hazelTotal * 2/3 * 100) / 100;
+  var totalDeduct = Math.round((leedyDeduct + hazelDeduct) * 100) / 100;
+  var adjustedPH = Math.max(0, phTotal - totalDeduct);
+
+  var expenseRows = expenses.length > 0 ? expenses.map(function(e, i) {
+    var pct = e.house === 'Leedy House' ? '100%' : '67%';
+    var deduct = e.house === 'Leedy House' ? (parseFloat(e.amount)||0) : Math.round((parseFloat(e.amount)||0) * 2/3 * 100)/100;
+    return '<tr><td>' + (e.date||'') + '</td><td>' + (e.description||'') + '</td><td>' + (e.house||'') + '</td><td>$' + (parseFloat(e.amount)||0).toLocaleString() + '</td><td>' + pct + '</td><td style="font-weight:600;color:#c0392b">-$' + deduct.toLocaleString() + '</td></tr>';
+  }).join('') : '<tr><td colspan="6" style="color:#bbb;text-align:center">No FL-paid expenses recorded</td></tr>';
+
+  var expenseSection = '<div class="sec-title">PH Reimbursement to FL</div>'
+    + '<div class="tbl-wrap"><table>'
+    + '<thead><tr><th>Date</th><th>Description</th><th>House</th><th>Amount Paid</th><th>Keith\'s %</th><th>Deducted</th></tr></thead>'
+    + '<tbody>' + expenseRows + '</tbody>'
+    + '</table>'
+    + (totalDeduct > 0 ? '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:#fff5f5;border:1px solid #f0d0d0;border-top:none;font-size:13px;font-weight:700;color:#c0392b">'
+      + '<span>Total deducted from Keith\'s payout</span><span>-$' + totalDeduct.toLocaleString() + '</span></div>' : '')
+    + '</div>';
   var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var moIdx      = monthNames.indexOf(month);
   var nextMoIdx  = (moIdx >= 11) ? 0 : moIdx + 1;
@@ -6999,12 +7125,16 @@ function printDisbursementStatement(month) {
     +   '<div class="bd"><label>PH Operating Expenses</label><div class="bv">$' + opEx.toLocaleString() + '.00</div><small>' + month + ' 2026</small></div>'
     + '</div>'
 
+    // PH Reimbursement to FL section
+    + expenseSection
+
+
     // Paybox
     + '<div class="paybox">'
     +   '<div class="paybox-hdr">Total Payment Issued This Period</div>'
     +   '<div class="paybox-body">'
     +     '<div><div class="pt-label">Pay To</div><div class="pt-name">Phoenix Haven LLC</div></div>'
-    +     '<div><div class="amt-label">Amount</div><div class="amt-val">$' + phTotal.toLocaleString() + '.00</div></div>'
+    +     '<div><div class="amt-label">Amount' + (totalDeduct > 0 ? ' (after FL expense deductions)' : '') + '</div><div class="amt-val">$' + adjustedPH.toLocaleString() + '.00</div></div>'
     +   '</div>'
     + '</div>'
 
