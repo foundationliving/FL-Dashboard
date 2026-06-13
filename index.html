@@ -4312,7 +4312,43 @@ function getEffectiveDates(r) {
   return { firstDay: first, lastDay: last };
 }
 
+const CAL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function isBackdatedLocked(r) {
+  if (!r || !r.month) return false;
+  const mi = CAL_MONTHS.indexOf((r.month||'').trim());
+  if (mi < 0) return false;
+  const diff = new Date().getMonth() - mi;
+  if (diff < 2) return false; // current month, last month, or future — never locked
+  // Intentional backdated billing unlocks the row:
+  if (r.invoice && /^FL-\d+(PH)?$/.test(r.invoice)) return false;   // invoice assigned
+  if ((r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart) return false; // pencil billing periods
+  if (r.agreement === 'MANUAL') return false;                        // Quick Add entry
+  return true;
+}
+
+// Suppress auto-amounts when a later month's row bills this month via billing periods (prevents double-count display)
+function isCoveredByLaterPeriods(r, arr) {
+  if (!r || !r.month || !r.name) return false;
+  if (r.invoice && /^FL-\d+(PH)?$/.test(r.invoice)) return false; // already billed — leave alone
+  if ((r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart) return false; // has its own explicit billing
+  const mi = CAL_MONTHS.indexOf((r.month||'').trim());
+  if (mi < 0) return false;
+  const nm = (r.name||'').toLowerCase().trim();
+  return arr.some(o => {
+    if (!o || o === r || !o.billingPeriods || o.billingPeriods.length === 0) return false;
+    if ((o.name||'').toLowerCase().trim() !== nm) return false;
+    const omi = CAL_MONTHS.indexOf((o.month||'').trim());
+    if (omi <= mi) return false; // only LATER months
+    return o.billingPeriods.some(p => {
+      const d = safeParseDate(p.start);
+      return !isNaN(d) && d.getMonth() === mi;
+    });
+  });
+}
+
 function getDisplayTotal(r) {
+  if (isBackdatedLocked(r)) return 0;
+  if (isCoveredByLaterPeriods(r, INVOICE_DATA_ARR)) return 0;
   const rate = r.rate || 99;
 
   // MANUAL (Quick Add) entries: always recalculate from their own dates — never pull from tracker
@@ -6510,6 +6546,8 @@ function getPHEffectiveDates(r) {
 }
 
 function getPHDisplayTotal(r) {
+  if (isBackdatedLocked(r)) return 0;
+  if (isCoveredByLaterPeriods(r, PH_INVOICE_DATA_ARR)) return 0;
   if (r.total > 0) return r.total;
   const rate = r.rate || 99;
   const { firstDay, lastDay } = getPHEffectiveDates(r);
