@@ -45,7 +45,7 @@ body{font-family:'DM Sans',sans-serif;background:linear-gradient(160deg,#eef2f8 
 
 /* ── Page ── */
 .page{max-width:1280px;margin:0 auto;padding:28px 32px}
-.tab-content{display:none} .tab-content.active{display:block}
+.tab-content{display:none} .tab-content.active{display:block} #tab-privatepay{display:none!important} #tab-privatepay.pp-visible{display:block!important;position:fixed;top:140px;left:0;right:0;bottom:0;width:100%;height:calc(100vh - 140px);min-height:400px;overflow-y:auto;background:#f0f4f8;z-index:500;box-sizing:border-box}
 
 /* ── Agreement tracker styles ── */
 .section{background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-radius:16px;box-shadow:var(--shadow);border:1px solid rgba(220,228,238,0.8);margin-bottom:24px;overflow:hidden}
@@ -577,6 +577,7 @@ if (authState === 'owner' || authState === '1') {
   <button class="app-tab" onclick="switchAppTab('eligibility');renderEligibility();">Eligibility</button>
   <button class="app-tab" onclick="switchAppTab('referral');renderDrafts();updateDraftSelect();">Referral Dashboard</button>
   <button class="app-tab" onclick="switchAppTab('subcontractors');renderPH();renderPHAgreements();">Subcontractors<span id="ph-ref-needed-badge" style="display:none;background:rgba(255,255,255,0.9);color:#1c2f4a;border:none;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:6px;vertical-align:middle"></span></button>
+  <button class="app-tab" onclick="switchAppTab('privatepay');ppSwitch('overview');">Private Pay</button>
 </div>
 
 <!-- Subcontractor Tab Banner -->
@@ -1047,6 +1048,112 @@ if (authState === 'owner' || authState === '1') {
   </div>
 </div>
 
+
+<!-- ═══════════════ PRIVATE PAY TAB ═══════════════ -->
+<div id="tab-privatepay" class="tab-content">
+  <div class="page">
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">Private Pay</span>
+      </div>
+      <div class="section-body">
+
+        <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">
+          <button class="pill active" id="pp-pill-overview" onclick="ppSwitch('overview')" style="padding:10px 28px;font-size:14px;font-weight:600">Overview</button>
+          <button class="pill" id="pp-pill-sacrec" onclick="ppSwitch('sacrec')" style="padding:10px 28px;font-size:14px;font-weight:600">Sac Recovery</button>
+          <button class="pill" id="pp-pill-selfpay" onclick="ppSwitch('selfpay')" style="padding:10px 28px;font-size:14px;font-weight:600">Self-Pay</button>
+        </div>
+
+        <!-- OVERVIEW -->
+        <div id="pp-view-overview">
+          <div class="inv-summary" id="pp-ov-stats"></div>
+          <div class="count-note">Income by source — current month</div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead><tr style="background:linear-gradient(90deg,#d6e8f5,#ddeaf8)"><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Source</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Patients</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Expected</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Collected</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Outstanding</th></tr></thead>
+              <tbody id="pp-ov-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SAC RECOVERY -->
+        <div id="pp-view-sacrec" style="display:none">
+          <div id="pp-sr-alert"></div>
+          <div class="inv-summary" id="pp-sr-stats"></div>
+          <div class="controls">
+            <button class="btn btn-green" onclick="ppToggleForm('sr')">+ Add bed / patient</button>
+            <button class="btn btn-gold" onclick="generatePPInvoice()" style="white-space:nowrap">📄 Generate invoice</button>
+            <input type="text" class="search-box" id="pp-sr-search" placeholder="Search bed, patient, or house..." oninput="renderSR()">
+            <select class="filter-select" id="pp-sr-filter" onchange="renderSR()">
+              <option value="all">All statuses</option>
+              <option value="filled">Filled</option>
+              <option value="backfill">Needs backfill</option>
+              <option value="ending">Ending soon</option>
+            </select>
+          </div>
+          <div class="add-row-form" id="pp-sr-form">
+            <div class="form-field"><label>House</label><input type="text" id="sr-f-house" placeholder="Ranch"></div>
+            <div class="form-field"><label>Patient</label><input type="text" id="sr-f-patient" placeholder="Full name (or blank)"></div>
+            <div class="form-field"><label>Window start</label><input type="text" id="sr-f-start" placeholder="MM/DD/YYYY"></div>
+            <div class="form-field"><label>Window end</label><input type="text" id="sr-f-end" placeholder="MM/DD/YYYY"></div>
+            <div style="display:flex;gap:8px;padding-top:2px">
+              <button class="btn btn-green" onclick="addSR()">Add bed</button>
+              <button class="btn btn-gray" onclick="ppToggleForm('sr')">Cancel</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead><tr style="background:linear-gradient(90deg,#d6e8f5,#ddeaf8)"><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">House</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Patient</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Monthly Rate</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Move-in</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Agreement Expires</th><th></th></tr></thead>
+              <tbody id="pp-sr-body"></tbody>
+            </table>
+          </div>
+          <!-- Invoice print overlay -->
+          <div id="pp-inv-overlay" style="display:none;position:fixed;inset:0;background:#fff;z-index:9000;overflow-y:auto;padding:40px" class="invoice-print-area">
+            <div id="pp-inv-content" style="max-width:700px;margin:0 auto"></div>
+            <div style="max-width:700px;margin:20px auto 0;display:flex;gap:10px" class="no-print">
+              <button class="btn btn-green" onclick="window.print()">🖨 Print / Save PDF</button>
+              <button class="btn btn-gray" onclick="closePPInvoice()">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SELF PAY -->
+        <div id="pp-view-selfpay" style="display:none">
+          <div id="pp-sp-alert"></div>
+          <div class="inv-summary" id="pp-sp-stats"></div>
+          <div class="controls">
+            <button class="btn btn-green" onclick="ppToggleForm('sp')">+ Add self-pay resident</button>
+            <input type="text" class="search-box" id="pp-sp-search" placeholder="Search resident or house..." oninput="renderSP()">
+            <select class="filter-select" id="pp-sp-filter" onchange="renderSP()">
+              <option value="all">All statuses</option>
+              <option value="paid">Paid</option>
+              <option value="partial">Partial</option>
+              <option value="overdue">Overdue</option>
+            </select>
+          </div>
+          <div class="add-row-form" id="pp-sp-form">
+            <div class="form-field"><label>Resident</label><input type="text" id="sp-f-name" placeholder="Full name"></div>
+            <div class="form-field"><label>House / bed</label><input type="text" id="sp-f-bed" placeholder="Ranch-12"></div>
+            <div class="form-field"><label>Monthly rent</label><input type="text" id="sp-f-rent" placeholder="1200"></div>
+            <div class="form-field"><label>Deposit</label><input type="text" id="sp-f-dep" placeholder="400"></div>
+            <div class="form-field"><label>Paid this month</label><input type="text" id="sp-f-paid" placeholder="0"></div>
+            <div style="display:flex;gap:8px;padding-top:2px">
+              <button class="btn btn-green" onclick="addSP()">Add resident</button>
+              <button class="btn btn-gray" onclick="ppToggleForm('sp')">Cancel</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead><tr style="background:linear-gradient(90deg,#d6e8f5,#ddeaf8)"><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Resident</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">House / bed</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Monthly rent</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Deposit</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Paid</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Due</th><th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Status</th><th></th></tr></thead>
+              <tbody id="pp-sp-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="tab-referral" class="tab-content">
   <div class="page">
@@ -1546,6 +1653,13 @@ let PH_ELIGIBILITY_DATA = [];
 let PH_TRACKER = [];
 let PH_PAYMENTS = {};
 
+// ── Private Pay ──
+let PP_BEDS = [];
+let PP_SELFPAY = [];
+let PP_SR_INVOICES = [];
+let ppView = 'overview';
+const PP_SR_RATE = 800;
+
 let REFERRAL_DRAFTS = (function(){ try { const d=localStorage.getItem('fl_referral_drafts'); return d?JSON.parse(d):[]; } catch(e){ return []; }})();
 let INVOICE_DATA_ARR = [];
 
@@ -1568,12 +1682,18 @@ let priorEditMonth = null;
 function switchAppTab(tab) {
   currentAppTab = tab;
   // Highlight correct tab button
-  document.querySelectorAll('.app-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='agreements')||(i===1&&tab==='invoices')||(i===2&&tab==='eligibility')||(i===3&&tab==='referral')||(i===4&&tab==='subcontractors')));
+  document.querySelectorAll('.app-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='agreements')||(i===1&&tab==='invoices')||(i===2&&tab==='eligibility')||(i===3&&tab==='referral')||(i===4&&tab==='subcontractors')||(i===5&&tab==='privatepay')));
   // Show/hide tab content panels directly via display style (belt + suspenders)
-  const tabs = ['agreements','invoices','eligibility','referral','subcontractors'];
+  const tabs = ['agreements','invoices','eligibility','referral','subcontractors','privatepay'];
   tabs.forEach(t => {
     const el = document.getElementById('tab-' + t);
-    if (el) el.style.display = (t === tab) ? 'block' : 'none';
+    if (el) {
+      if (t === 'privatepay') {
+        el.classList.toggle('pp-visible', t === tab);
+      } else {
+        el.style.display = (t === tab) ? 'block' : 'none';
+      }
+    }
   });
   // For subcontractors, ensure the active inner panel is visible before rendering
   if (tab === 'subcontractors') {
@@ -1687,7 +1807,7 @@ function autoSync() {
     return;
   }
   console.log("Syncing eligibility count:", ELIGIBILITY_DATA.length);
-  const _payload = {action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS};
+  const _payload = {action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES};
   console.log('AUTOSYNC SENDING - invoices:', _payload.invoices.length, 'tracker:', _payload.tracker.length);
   fetch(scriptURL, {
     method:'POST', mode:'no-cors',
@@ -1771,6 +1891,9 @@ function loadFromSheet(onDone) {
       if (data.ph_eligibility && data.ph_eligibility.length>0) PH_ELIGIBILITY_DATA = data.ph_eligibility;
       if (data.ph_tracker && data.ph_tracker.length>0) PH_TRACKER = data.ph_tracker;
       if (data.ph_payments) PH_PAYMENTS = data.ph_payments;
+      if (data.pp_beds && data.pp_beds.length>0) PP_BEDS = data.pp_beds;
+      if (data.pp_selfpay && data.pp_selfpay.length>0) PP_SELFPAY = data.pp_selfpay;
+      if (data.pp_sr_invoices && data.pp_sr_invoices.length>0) PP_SR_INVOICES = data.pp_sr_invoices;
       markSaved(data.lastSaved);
       // Propagate existing moved-out invoice patients to eligibility
       deduplicateEligibility();
@@ -1813,7 +1936,7 @@ function syncNow() {
   fetch(scriptURL, {
     method:'POST', mode:'no-cors',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS})
+    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES})
   })
   .then(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; markSaved(new Date().toISOString()); showToast('Saved to Google Sheets ✓'); })
   .catch(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; showToast('Sync failed','error'); });
@@ -6408,7 +6531,7 @@ function savePHPaymentsDirect() {
   clearTimeout(autoSyncTimer);
   autoSyncTimer = setTimeout(function() {
     if (!dataReady) return;
-    const _payload = {action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS};
+    const _payload = {action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES};
     fetch(scriptURL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body:JSON.stringify(_payload)})
       .then(function(){ markSaved(new Date().toISOString()); showToast('\u2713 Saved'); })
       .catch(function(){});
@@ -7228,6 +7351,313 @@ function printDisbursementStatement(month) {
   }
   setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
 }
+
+
+// ═══════════ PRIVATE PAY FUNCTIONS ═══════════
+function ppMoney(n){return '$'+Number(n||0).toLocaleString();}
+function ppDaysLeft(endStr){
+  if(!endStr) return null;
+  var p=String(endStr).split('/'); if(p.length!==3) return null;
+  var end=new Date(Number(p[2]),Number(p[0])-1,Number(p[1]));
+  var today=new Date(); today.setHours(0,0,0,0);
+  return Math.round((end-today)/(1000*60*60*24));
+}
+function ppStat(label,val,color){
+  return '<div class="inv-stat"><div class="inv-stat-label">'+label+'</div><div class="inv-stat-val"'+(color?' style="color:'+color+'"':'')+'>'+val+'</div></div>';
+}
+function ppSwitch(v){
+  ppView=v;
+  var views=['overview','sacrec','selfpay'];
+  for(var xi=0;xi<views.length;xi++){
+    var xel=document.getElementById('pp-view-'+views[xi]); if(xel) xel.style.display=(views[xi]===v)?'block':'none';
+    var xpill=document.getElementById('pp-pill-'+views[xi]); if(xpill) xpill.classList.toggle('active',views[xi]===v);
+  }
+  if(v==='overview') ppRenderOverview();
+  if(v==='sacrec') renderSR();
+  if(v==='selfpay') renderSP();
+}
+function ppToggleForm(which){
+  var f=document.getElementById('pp-'+which+'-form'); if(f) f.classList.toggle('visible');
+}
+function srStatus(b){
+  var dl=ppDaysLeft(b.end);
+  if(!b.patient) return {key:'backfill',label:'Needs backfill',cls:'badge-orange'};
+  if(dl!==null&&dl<=14) return {key:'ending',label:'Ending soon',cls:'badge-pending'};
+  if(b.history&&b.history.length>1) return {key:'backfilled',label:'Backfilled',cls:'badge-purple'};
+  return {key:'filled',label:'Filled',cls:'badge-green'};
+}
+function renderSR(){
+  var qel=document.getElementById('pp-sr-search'); var q=qel?(qel.value||'').toLowerCase():'';
+  var fel=document.getElementById('pp-sr-filter'); var f=fel?fel.value:'all';
+  var body=document.getElementById('pp-sr-body'); if(!body) return; body.innerHTML='';
+  var filled=0,empty=0,ending=0;
+  for(var bi=0;bi<PP_BEDS.length;bi++){
+    var b=PP_BEDS[bi]; var i=bi;
+    var st=srStatus(b);
+    if(b.patient) filled++; else empty++;
+    if(st.key==='ending') ending++;
+    var text=((b.bed||'')+' '+(b.house||'')+' '+(b.patient||'')).toLowerCase();
+    if(q&&text.indexOf(q)===-1) continue;
+    if(f!=='all'&&st.key!==f&&!(f==='filled'&&st.key==='backfilled')) continue;
+    var dl=ppDaysLeft(b.end);
+    var histHtml='';
+    if(b.history&&b.history.length){
+      histHtml='<div style="margin-top:7px;padding-top:7px;border-top:1px dashed #dde2ea"><div style="font-size:9.5px;font-weight:600;color:#9aabb8;text-transform:uppercase;margin-bottom:3px">History</div>';
+      for(var hi=0;hi<b.history.length;hi++){var h=b.history[hi]; histHtml+='<div style="font-size:11.5px;color:#5d6b82;line-height:1.55">&rarr; '+h.name+' &middot; '+h.span+(h.note?' ('+h.note+')':'')+'</div>';}
+      histHtml+='</div>';
+    }
+    var patientCell=(b.patient?'<span style="font-weight:500;color:#1a202c;font-size:13.5px">'+b.patient+'</span>':'<span style="color:#a0aec0">&mdash; empty &mdash;</span>')+histHtml;
+    var dlStr=dl!==null?String(dl):'&mdash;';
+    var rateStr = b.rate ? (b.rate.indexOf('$')===0?b.rate:'$'+b.rate) : '&mdash;';
+    body.insertAdjacentHTML('beforeend',
+      '<tr>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)">'+(b.house||'')+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-weight:500;color:#1a202c">'+(b.patient||'<span style='color:#a0aec0'>&mdash; empty &mdash;</span>')+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;font-weight:600;color:#1e6b3d">'+rateStr+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;font-size:11px;color:#5d6b82">'+(b.movein||'&mdash;')+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;font-size:11px;color:#5d6b82">'+(b.end||'&mdash;')+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)"><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1" onclick="delSR('+i+')">&#x2715;</button></td></tr>');
+  }
+  if(!body.innerHTML) body.innerHTML='<tr><td colspan="7" style="padding:40px;text-align:center;color:#a0aec0;font-size:14px">No matching beds.</td></tr>';
+  var earned=filled*PP_SR_RATE;
+  document.getElementById('pp-sr-stats').innerHTML=
+    ppStat('Est. earned / mo',ppMoney(earned),'#1e6b3d');
+  var alertHtml='';
+  if(empty>0||ending>0){
+    alertHtml='<div style="background:linear-gradient(90deg,#fffbea,#fffdf5);border:1px solid #f0a060;border-radius:8px;padding:11px 16px;font-size:12.5px;color:#8a2f06;font-weight:500;margin-bottom:18px">&#x26A0; '+
+      (ending>0?ending+' window'+(ending>1?'s':'')+' ending within 14 days. ':'')+
+      (empty>0?empty+' bed'+(empty>1?'s':'')+' need backfill &mdash; ping Sac Recovery.':'')+'</div>';
+  }
+  document.getElementById('pp-sr-alert').innerHTML=alertHtml;
+}
+function addSR(){
+  var bed='';
+  PP_BEDS.unshift({bed:'',house:document.getElementById('sr-f-house').value.trim(),patient:document.getElementById('sr-f-patient').value.trim(),rate:document.getElementById('sr-f-rate').value.trim(),movein:document.getElementById('sr-f-movein').value.trim(),end:document.getElementById('sr-f-end').value.trim(),history:[]});
+  var ids=['sr-f-house','sr-f-patient','sr-f-rate','sr-f-movein','sr-f-end'];
+  for(var ii=0;ii<ids.length;ii++) document.getElementById(ids[ii]).value='';
+  ppToggleForm('sr'); renderSR(); markUnsaved(); showToast('Bed added');
+}
+function delSR(i){ if(confirm('Remove this bed?')){PP_BEDS.splice(i,1);renderSR();markUnsaved();showToast('Bed removed');} }
+function spStatus(r){
+  if(r.paid>=r.rent) return {key:'paid',label:'Paid',cls:'badge-green'};
+  if(r.paid>0) return {key:'partial',label:'Partial',cls:'badge-orange'};
+  return {key:'overdue',label:'Overdue',cls:'badge-red'};
+}
+function renderSP(){
+  var qel=document.getElementById('pp-sp-search'); var q=qel?(qel.value||'').toLowerCase():'';
+  var fel=document.getElementById('pp-sp-filter'); var f=fel?fel.value:'all';
+  var body=document.getElementById('pp-sp-body'); if(!body) return; body.innerHTML='';
+  var expected=0,collected=0,due=0,overdueCount=0,overdueAmt=0;
+  for(var ri=0;ri<PP_SELFPAY.length;ri++){
+    var r=PP_SELFPAY[ri]; var i=ri;
+    var st=spStatus(r); var owed=Math.max(0,r.rent-r.paid);
+    expected+=r.rent; collected+=r.paid; due+=owed;
+    if(st.key==='overdue'){overdueCount++; overdueAmt+=owed;}
+    var text=((r.name||'')+' '+(r.bed||'')).toLowerCase();
+    if(q&&text.indexOf(q)===-1) continue;
+    if(f!=='all'&&st.key!==f) continue;
+    body.insertAdjacentHTML('beforeend',
+      '<tr>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-weight:500;color:#1a202c;font-size:13.5px">'+(r.name||'')+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;font-size:11px;color:#5d6b82">'+(r.bed||'')+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-weight:500;font-family:DM Mono,monospace;font-size:14px;color:#1e6b3d">'+ppMoney(r.rent)+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;font-size:11px;color:#5d6b82">'+ppMoney(r.deposit)+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace">'+ppMoney(r.paid)+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;color:'+(owed>0?'#a82828':'#1e6b3d')+'">'+ppMoney(owed)+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)"><span class="badge '+st.cls+'">'+st.label+'</span></td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)"><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1" onclick="delSP('+i+')">&#x2715;</button></td></tr>');
+  }
+  if(!body.innerHTML) body.innerHTML='<tr><td colspan="8" style="padding:40px;text-align:center;color:#a0aec0;font-size:14px">No matching residents.</td></tr>';
+  document.getElementById('pp-sp-stats').innerHTML=
+    ppStat('Residents',PP_SELFPAY.length)+ppStat('Rent due / mo',ppMoney(expected))+
+    ppStat('Collected',ppMoney(collected),'#1e6b3d')+ppStat('Outstanding',ppMoney(due),due>0?'#a82828':null);
+  var spAlertHtml=overdueCount>0?'<div style="background:linear-gradient(90deg,#fffbea,#fffdf5);border:1px solid #f0a060;border-radius:8px;padding:11px 16px;font-size:12.5px;color:#8a2f06;font-weight:500;margin-bottom:18px">&#x26A0; '+overdueCount+' resident'+(overdueCount>1?'s':'')+' overdue, totaling '+ppMoney(overdueAmt)+'.</div>':'';
+  document.getElementById('pp-sp-alert').innerHTML=spAlertHtml;
+}
+function addSP(){
+  var name=document.getElementById('sp-f-name').value.trim();
+  if(!name){showToast('Enter a name');return;}
+  PP_SELFPAY.unshift({name:name,bed:document.getElementById('sp-f-bed').value.trim(),rent:Number(document.getElementById('sp-f-rent').value)||0,deposit:Number(document.getElementById('sp-f-dep').value)||0,paid:Number(document.getElementById('sp-f-paid').value)||0});
+  var ids=['sp-f-name','sp-f-bed','sp-f-rent','sp-f-dep','sp-f-paid'];
+  for(var ii=0;ii<ids.length;ii++) document.getElementById(ids[ii]).value='';
+  ppToggleForm('sp'); renderSP(); markUnsaved(); showToast('Resident added');
+}
+function delSP(i){ if(confirm('Remove this resident?')){PP_SELFPAY.splice(i,1);renderSP();markUnsaved();showToast('Resident removed');} }
+function ppRenderOverview(){
+  var srFilled=0; for(var bi=0;bi<PP_BEDS.length;bi++){if(PP_BEDS[bi].patient) srFilled++;}
+  var srEarned=srFilled*PP_SR_RATE;
+  var spExpected=0,spCollected=0;
+  for(var ri=0;ri<PP_SELFPAY.length;ri++){spExpected+=PP_SELFPAY[ri].rent; spCollected+=PP_SELFPAY[ri].paid;}
+  var spDue=Math.max(0,spExpected-spCollected);
+  var totalExpected=srEarned+spExpected, totalCollected=srEarned+spCollected, totalOut=spDue;
+  document.getElementById('pp-ov-stats').innerHTML=
+    ppStat('Beds filled (all)',srFilled+PP_SELFPAY.length)+
+    ppStat('Expected / mo',ppMoney(totalExpected))+
+    ppStat('Collected / earned',ppMoney(totalCollected),'#1e6b3d')+
+    ppStat('Outstanding',ppMoney(totalOut),totalOut>0?'#a82828':null);
+  document.getElementById('pp-ov-body').innerHTML=
+    '<tr><td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-weight:500;color:#1a202c">Sac Recovery</td>'+
+    '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)">'+srFilled+'</td>'+
+    '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace">'+ppMoney(srEarned)+'</td>'+
+    '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;color:#1e6b3d">'+ppMoney(srEarned)+'</td>'+
+    '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace">$0</td></tr>'+
+    '<tr><td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-weight:500;color:#1a202c">Self-Pay</td>'+
+    '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)">'+PP_SELFPAY.length+'</td>'+
+    '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace">'+ppMoney(spExpected)+'</td>'+
+    '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;color:#1e6b3d">'+ppMoney(spCollected)+'</td>'+
+    '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;color:'+(spDue>0?'#a82828':'#1e6b3d')+'">'+ppMoney(spDue)+'</td></tr>'+
+    '<tr style="font-weight:600"><td style="padding:11px 12px">Total</td>'+
+    '<td style="padding:11px 12px">'+(srFilled+PP_SELFPAY.length)+'</td>'+
+    '<td style="padding:11px 12px;font-family:DM Mono,monospace">'+ppMoney(totalExpected)+'</td>'+
+    '<td style="padding:11px 12px;font-family:DM Mono,monospace;color:#1e6b3d">'+ppMoney(totalCollected)+'</td>'+
+    '<td style="padding:11px 12px;font-family:DM Mono,monospace;color:'+(totalOut>0?'#a82828':'#1e6b3d')+'">'+ppMoney(totalOut)+'</td></tr>';
+}
+
+// ═══════════ PRIVATE PAY — INVOICE SYSTEM ═══════════
+function ppNextInvoiceNum(){
+  var max=0;
+  for(var i=0;i<PP_SR_INVOICES.length;i++){
+    var n=parseInt((PP_SR_INVOICES[i].num||'').replace('FL-PP-',''))||0;
+    if(n>max) max=n;
+  }
+  return 'FL-PP-'+(String(max+1).padStart(3,'0'));
+}
+
+function ppCurrentPeriod(){
+  var d=new Date();
+  return d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+}
+
+function generatePPInvoice(){
+  var beds=PP_BEDS.filter(function(b){return b.patient;});
+  if(beds.length===0){showToast('No active patients to invoice');return;}
+  var num=ppNextInvoiceNum();
+  var period=ppCurrentPeriod();
+  var date=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  var items=beds.map(function(b){
+    var r=parseFloat((b.rate||'0').replace(/[^0-9.]/g,''))||PP_SR_RATE;
+    return {bed:b.bed,house:b.house,patient:b.patient,rate:r,movein:b.movein||'',end:b.end||''};
+  });
+  var total=items.reduce(function(s,it){return s+it.rate;},0);
+  var inv={num:num,period:period,date:date,beds:items.length,total:total,items:items,status:'Unpaid'};
+  PP_SR_INVOICES.unshift(inv);
+  renderPPInvoices();
+  markUnsaved();
+  showToast(num+' created');
+  viewPPInvoice(0);
+}
+
+function renderPPInvoices(){
+  var body=document.getElementById('pp-inv-body');
+  if(!body) return;
+  body.innerHTML='';
+  if(!PP_SR_INVOICES.length){
+    body.innerHTML='<tr><td colspan="6" style="padding:32px;text-align:center;color:#a0aec0;font-size:13px">No invoices yet. Click &ldquo;Generate monthly invoice&rdquo; to create one.</td></tr>';
+    return;
+  }
+  PP_SR_INVOICES.forEach(function(inv,i){
+    var sc=inv.status==='Paid'?'badge-green':inv.status==='Partial'?'badge-orange':'badge-red';
+    body.insertAdjacentHTML('beforeend',
+      '<tr>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;font-weight:600;color:#1a202c">'+inv.num+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);color:#5d6b82">'+inv.period+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)">'+inv.beds+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;font-weight:600;color:#1e6b3d">$'+Number(inv.total).toLocaleString()+'</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)">'+
+        '<select onchange="markPPInvStatus('+i+',this.value)" style="font-size:12px;border:1px solid #dde2ea;border-radius:6px;padding:4px 8px;font-family:inherit;background:#fff;color:#1a202c">'+
+          '<option'+(inv.status==='Unpaid'?' selected':'')+'>Unpaid</option>'+
+          '<option'+(inv.status==='Partial'?' selected':'')+'>Partial</option>'+
+          '<option'+(inv.status==='Paid'?' selected':'')+'>Paid</option>'+
+        '</select>'+
+      '</td>'+
+      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);display:flex;gap:6px">'+
+        '<button class="btn btn-navy" style="padding:5px 12px;font-size:11px" onclick="viewPPInvoice('+i+')">View</button>'+
+        '<button class="btn btn-gray" style="padding:5px 10px;font-size:11px;color:#a82828" onclick="delPPInvoice('+i+')">Delete</button>'+
+      '</td>'+
+      '</tr>');
+  });
+}
+
+function markPPInvStatus(i,val){
+  PP_SR_INVOICES[i].status=val;
+  renderPPInvoices();
+  markUnsaved();
+}
+
+function delPPInvoice(i){
+  if(!confirm('Delete invoice '+PP_SR_INVOICES[i].num+'?')) return;
+  PP_SR_INVOICES.splice(i,1);
+  renderPPInvoices();
+  markUnsaved();
+  showToast('Invoice deleted');
+}
+
+function viewPPInvoice(i){
+  var inv=PP_SR_INVOICES[i];
+  var rows='';
+  inv.items.forEach(function(it){
+    rows+='<tr>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;font-weight:500">'+it.patient+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;color:#5d6b82">'+it.house+' &mdash; '+it.bed+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;color:#5d6b82">'+(it.movein||'&mdash;')+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;color:#5d6b82">'+(it.end||'&mdash;')+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;font-family:DM Mono,monospace;font-weight:600;color:#1e6b3d">$'+Number(it.rate).toLocaleString()+'.00</td>'+
+    '</tr>';
+  });
+  var html=
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px">'+
+      '<div>'+
+        '<div style="font-size:22px;font-weight:700;color:#0f2035">Foundation Living LLC</div>'+
+        '<div style="font-size:12px;color:#8fa4c0;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px">Sacramento County, California</div>'+
+      '</div>'+
+      '<div style="text-align:right">'+
+        '<div style="font-size:28px;font-weight:300;color:#0f2035;letter-spacing:2px;text-transform:uppercase">Invoice</div>'+
+        '<div style="font-family:DM Mono,monospace;font-size:15px;font-weight:600;color:#2d6a1f;margin-top:4px">'+inv.num+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px;background:#f8fafb;border:1px solid #e5e9ef;border-radius:10px;padding:20px">'+
+      '<div>'+
+        '<div style="font-size:10px;font-weight:700;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Bill to</div>'+
+        '<div style="font-weight:600;color:#0f2035">Sac Recovery</div>'+
+        '<div style="font-size:12px;color:#5d6b82;margin-top:2px">Rehabilitation / Recovery Facility</div>'+
+      '</div>'+
+      '<div style="text-align:right">'+
+        '<div style="font-size:10px;font-weight:700;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Invoice details</div>'+
+        '<div style="font-size:13px;color:#0f2035"><strong>Date:</strong> '+inv.date+'</div>'+
+        '<div style="font-size:13px;color:#0f2035;margin-top:3px"><strong>Period:</strong> '+inv.period+'</div>'+
+        '<div style="font-size:13px;color:#0f2035;margin-top:3px"><strong>Status:</strong> <span style="color:'+(inv.status==='Paid'?'#1e6b3d':inv.status==='Partial'?'#c2460a':'#a82828')+'">'+inv.status+'</span></div>'+
+      '</div>'+
+    '</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">'+
+      '<thead><tr style="background:linear-gradient(90deg,#0f2035,#1c3455)">'+
+        '<th style="text-align:left;padding:11px 12px;color:#fff;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em">Patient</th>'+
+        '<th style="text-align:left;padding:11px 12px;color:#fff;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em">House / Bed</th>'+
+        '<th style="text-align:left;padding:11px 12px;color:#fff;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em">Move-in</th>'+
+        '<th style="text-align:left;padding:11px 12px;color:#fff;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em">Agmt. Expires</th>'+
+        '<th style="text-align:right;padding:11px 12px;color:#fff;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em">Monthly Rate</th>'+
+      '</tr></thead>'+
+      '<tbody>'+rows+'</tbody>'+
+    '</table>'+
+    '<div style="display:flex;justify-content:flex-end;margin-bottom:32px">'+
+      '<div style="background:#eef7ea;border:1px solid #b8dab0;border-radius:10px;padding:16px 24px;min-width:220px;text-align:right">'+
+        '<div style="font-size:11px;color:#7a8fa8;text-transform:uppercase;font-weight:600;letter-spacing:0.07em;margin-bottom:6px">Total due</div>'+
+        '<div style="font-size:32px;font-weight:700;color:#1e6b3d;font-family:DM Mono,monospace">$'+Number(inv.total).toLocaleString()+'.00</div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="border-top:1px solid #eee;padding-top:16px;font-size:11px;color:#9aabb8;text-align:center">'+
+      'Foundation Living LLC &mdash; Sacramento County, CA &mdash; Thank you for your partnership.'+
+    '</div>';
+
+  document.getElementById('pp-inv-content').innerHTML=html;
+  document.getElementById('pp-inv-overlay').style.display='block';
+  document.body.style.overflow='hidden';
+}
+
+function closePPInvoice(){
+  document.getElementById('pp-inv-overlay').style.display='none';
+  document.body.style.overflow='';
+}
+
 
 </script>
 <!-- Add Existing Patient Modal -->
