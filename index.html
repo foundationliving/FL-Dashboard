@@ -244,9 +244,12 @@ tr:hover .pencil-btn{opacity:1}
   body { background: white !important; margin: 0 !important; padding: 0 !important; }
 
   /* Referral printing - only when NOT printing invoice or PH agreement */
-  body:not(.printing-invoice):not(.printing-ph-agreement) #tab-referral { display: block !important; }
-  body:not(.printing-invoice):not(.printing-ph-agreement) .tab-content { display: none !important; }
-  body:not(.printing-invoice):not(.printing-ph-agreement) #tab-referral { display: block !important; }
+  body:not(.printing-invoice):not(.printing-ph-agreement):not(.printing-pp-invoice) #tab-referral { display: block !important; }
+  body:not(.printing-invoice):not(.printing-ph-agreement):not(.printing-pp-invoice) .tab-content { display: none !important; }
+  body:not(.printing-invoice):not(.printing-ph-agreement):not(.printing-pp-invoice) #tab-referral { display: block !important; }
+  body.printing-pp-invoice #pp-inv-overlay { display: block !important; position: fixed; inset: 0; background: #fff; z-index: 9000; overflow: visible; padding: 40px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body.printing-pp-invoice .no-print { display: none !important; }
+  body.printing-pp-invoice .header, body.printing-pp-invoice .app-tabs, body.printing-pp-invoice .tab-content { display: none !important; }
   body:not(.printing-invoice):not(.printing-ph-agreement) .page { padding: 0 !important; margin: 0 !important; }
   body:not(.printing-invoice):not(.printing-ph-agreement) .section { box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 !important; }
   body:not(.printing-invoice):not(.printing-ph-agreement) .section-body { padding: 0 !important; background: white !important; margin: 0 !important; }
@@ -257,7 +260,7 @@ tr:hover .pencil-btn{opacity:1}
   body:not(.printing-invoice):not(.printing-ph-agreement) input[type=checkbox]:checked { accent-color: #000 !important; }
   body:not(.printing-invoice):not(.printing-ph-agreement) [contenteditable] { border: none !important; outline: none !important; }
   body:not(.printing-invoice):not(.printing-ph-agreement) .ref-ph { background: none !important; color: #000 !important; font-weight: normal !important; }
-  body:not(.printing-invoice):not(.printing-ph-agreement) #tab-referral ~ *:not(#tab-privatepay) { display: none !important; }
+  body:not(.printing-invoice):not(.printing-ph-agreement):not(.printing-pp-invoice) #tab-referral ~ *:not(#tab-privatepay):not(#pp-inv-overlay) { display: none !important; }
 
   /* PH Agreement printing */
   body.printing-ph-agreement .header,
@@ -577,7 +580,7 @@ if (authState === 'owner' || authState === '1') {
   <button class="app-tab" onclick="switchAppTab('eligibility');renderEligibility();">Eligibility</button>
   <button class="app-tab" onclick="switchAppTab('referral');renderDrafts();updateDraftSelect();">Referral Dashboard</button>
   <button class="app-tab" onclick="switchAppTab('subcontractors');renderPH();renderPHAgreements();">Subcontractors<span id="ph-ref-needed-badge" style="display:none;background:rgba(255,255,255,0.9);color:#1c2f4a;border:none;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:6px;vertical-align:middle"></span></button>
-  <button class="app-tab" onclick="switchAppTab('privatepay');ppSwitch('overview');">Private Pay</button>
+  <button class="app-tab" onclick="switchAppTab('privatepay');ppInit();">Private Pay</button>
 </div>
 
 <!-- Subcontractor Tab Banner -->
@@ -1058,120 +1061,106 @@ if (authState === 'owner' || authState === '1') {
       </div>
       <div class="section-body">
 
-        <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">
-          <button class="pill active" id="pp-pill-overview" onclick="ppSwitch('overview')" style="padding:10px 28px;font-size:14px;font-weight:600">Overview</button>
-          <button class="pill" id="pp-pill-sacrec" onclick="ppSwitch('sacrec')" style="padding:10px 28px;font-size:14px;font-weight:600">Sac Recovery</button>
-          <button class="pill" id="pp-pill-selfpay" onclick="ppSwitch('selfpay')" style="padding:10px 28px;font-size:14px;font-weight:600">Self-Pay</button>
+        <!-- Top source pills -->
+        <div class="month-pills" style="margin-bottom:20px">
+          <button class="pill active" id="pp-pill-sacrec" data-src="sacrec" onclick="ppSrcSwitch('sacrec')">Sac Recovery</button>
+          <button class="pill" id="pp-pill-selfpay" data-src="selfpay" onclick="ppSrcSwitch('selfpay')">Self-Pay</button>
         </div>
 
-        <!-- Invoice print overlay -->
-        <div id="pp-inv-overlay" style="display:none;position:fixed;inset:0;background:#fff;z-index:9000;overflow-y:auto;padding:40px">
-          <div id="pp-inv-content" style="max-width:700px;margin:0 auto"></div>
-          <div style="max-width:700px;margin:20px auto 0;display:flex;gap:10px">
-            <button class="btn btn-green" onclick="window.print()">Print / Save PDF</button>
-            <button class="btn btn-gray" onclick="closePPInvoice()">Close</button>
-          </div>
-        </div>
-
-        <!-- OVERVIEW -->
-        <div id="pp-view-overview">
-          <div class="inv-summary" id="pp-ov-stats"></div>
-          <div class="count-note">Income by source — current month</div>
-          <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
-              <thead><tr style="background:linear-gradient(90deg,#d6e8f5,#ddeaf8)">
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Source</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Patients</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Expected</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Collected</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Outstanding</th>
-              </tr></thead>
-              <tbody id="pp-ov-body"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- SAC RECOVERY -->
-        <div id="pp-view-sacrec" style="display:none">
-          <div id="pp-sr-alert"></div>
-          <div class="inv-summary" id="pp-sr-stats"></div>
-          <div class="controls">
-            <button class="btn btn-green" onclick="ppToggleForm('sr')">+ Add patient</button>
-            <button class="btn btn-gold" onclick="generatePPInvoice()" style="white-space:nowrap">Generate invoice</button>
-            <input type="text" class="search-box" id="pp-sr-search" placeholder="Search patient or house..." oninput="renderSR()">
-          </div>
-          <div class="add-row-form" id="pp-sr-form">
-            <div class="form-field"><label>House</label><input type="text" id="sr-f-house" placeholder="Ranch"></div>
-            <div class="form-field"><label>Patient name</label><input type="text" id="sr-f-patient" placeholder="Full name"></div>
-            <div class="form-field"><label>Monthly rate</label><input type="text" id="sr-f-rate" placeholder="$850"></div>
-            <div class="form-field"><label>Move-in date</label><input type="text" id="sr-f-movein" placeholder="MM/DD/YYYY"></div>
-            <div class="form-field"><label>Agreement expires</label><input type="text" id="sr-f-end" placeholder="MM/DD/YYYY"></div>
-            <div style="display:flex;gap:8px;padding-top:2px">
-              <button class="btn btn-green" onclick="addSR()">Add</button>
-              <button class="btn btn-gray" onclick="ppToggleForm('sr')">Cancel</button>
+        <!-- ── SAC RECOVERY VIEW ── -->
+        <div id="pp-src-sacrec">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px">
+            <div class="month-pills" id="pp-sr-pills" style="margin-bottom:0;flex:1"></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-green" onclick="ppSRToggleAdd()">+ Add patient</button>
+              <button class="btn btn-gold" onclick="ppSRPrintAll()">🖨 Print invoices</button>
             </div>
           </div>
-          <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
-              <thead><tr style="background:linear-gradient(90deg,#d6e8f5,#ddeaf8)">
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">House</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Patient</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Monthly Rate</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Move-in</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Agreement Expires</th>
-                <th></th>
-              </tr></thead>
-              <tbody id="pp-sr-body"></tbody>
-            </table>
+
+          <div id="pp-sr-add-form" class="add-row-form" style="margin-top:10px">
+            <div class="form-field"><label>Patient name</label><input type="text" id="pp-sr-f-name" placeholder="Full name"></div>
+            <div class="form-field"><label>House</label><input type="text" id="pp-sr-f-house" placeholder="Ranch"></div>
+            <div class="form-field"><label>Move-in date</label><input type="text" id="pp-sr-f-movein" placeholder="MM/DD/YYYY"></div>
+            <div class="form-field"><label>Agreement expires</label><input type="text" id="pp-sr-f-end" placeholder="MM/DD/YYYY"></div>
+            <div class="form-field"><label>Monthly rate</label><input type="text" id="pp-sr-f-rate" placeholder="850"></div>
+            <div style="display:flex;gap:8px;padding-top:2px">
+              <button class="btn btn-green" onclick="ppSRAddPatient()">Add patient</button>
+              <button class="btn btn-gray" onclick="ppSRToggleAdd()">Cancel</button>
+            </div>
           </div>
+
+          <div id="pp-sr-stats" style="margin:14px 0 8px"></div>
+
+          <div class="controls">
+            <input type="text" class="search-box" id="pp-sr-search" placeholder="Search patient or house..." oninput="ppSRRender()">
+            <select class="filter-select" id="pp-sr-filter" onchange="ppSRRender()">
+              <option value="all">All statuses</option>
+              <option value="Invoiced">Invoiced</option>
+              <option value="Paid">Paid</option>
+              <option value="Pending">Pending</option>
+            </select>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr style="background:#f0f4fa">
+                <th>Invoice #</th><th>Patient</th><th>House</th><th>Move-in</th><th>Expires</th><th>Rate</th><th>Status</th><th></th>
+              </tr></thead>
+              <tbody id="pp-sr-tbody"></tbody>
+            </table>
+            <div class="empty" id="pp-sr-empty" style="display:none">No records for this month.</div>
+          </div>
+          <div class="count-note" id="pp-sr-count"></div>
         </div>
 
-        <!-- SELF PAY -->
-        <div id="pp-view-selfpay" style="display:none">
-          <div id="pp-sp-alert"></div>
-          <div class="inv-summary" id="pp-sp-stats"></div>
+        <!-- ── SELF PAY VIEW ── -->
+        <div id="pp-src-selfpay" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px">
+            <div class="month-pills" id="pp-sp-pills" style="margin-bottom:0;flex:1"></div>
+            <button class="btn btn-green" onclick="ppSPToggleAdd()">+ Add resident</button>
+          </div>
+
+          <div id="pp-sp-add-form" class="add-row-form" style="margin-top:10px">
+            <div class="form-field"><label>Resident name</label><input type="text" id="pp-sp-f-name" placeholder="Full name"></div>
+            <div class="form-field"><label>House / bed</label><input type="text" id="pp-sp-f-bed" placeholder="Ranch-12"></div>
+            <div class="form-field"><label>Move-in date</label><input type="text" id="pp-sp-f-movein" placeholder="MM/DD/YYYY"></div>
+            <div class="form-field"><label>Monthly rent</label><input type="text" id="pp-sp-f-rent" placeholder="1200"></div>
+            <div class="form-field"><label>Deposit</label><input type="text" id="pp-sp-f-dep" placeholder="400"></div>
+            <div style="display:flex;gap:8px;padding-top:2px">
+              <button class="btn btn-green" onclick="ppSPAddResident()">Add resident</button>
+              <button class="btn btn-gray" onclick="ppSPToggleAdd()">Cancel</button>
+            </div>
+          </div>
+
+          <div id="pp-sp-stats" style="margin:14px 0 8px"></div>
+
           <div class="controls">
-            <button class="btn btn-green" onclick="ppToggleForm('sp')">+ Add resident</button>
-            <input type="text" class="search-box" id="pp-sp-search" placeholder="Search resident or house..." oninput="renderSP()">
-            <select class="filter-select" id="pp-sp-filter" onchange="renderSP()">
+            <input type="text" class="search-box" id="pp-sp-search" placeholder="Search resident or house..." oninput="ppSPRender()">
+            <select class="filter-select" id="pp-sp-filter" onchange="ppSPRender()">
               <option value="all">All statuses</option>
               <option value="paid">Paid</option>
               <option value="partial">Partial</option>
               <option value="overdue">Overdue</option>
             </select>
           </div>
-          <div class="add-row-form" id="pp-sp-form">
-            <div class="form-field"><label>Resident</label><input type="text" id="sp-f-name" placeholder="Full name"></div>
-            <div class="form-field"><label>House / bed</label><input type="text" id="sp-f-bed" placeholder="Ranch-12"></div>
-            <div class="form-field"><label>Monthly rent</label><input type="text" id="sp-f-rent" placeholder="1200"></div>
-            <div class="form-field"><label>Deposit</label><input type="text" id="sp-f-dep" placeholder="400"></div>
-            <div class="form-field"><label>Paid this month</label><input type="text" id="sp-f-paid" placeholder="0"></div>
-            <div style="display:flex;gap:8px;padding-top:2px">
-              <button class="btn btn-green" onclick="addSP()">Add</button>
-              <button class="btn btn-gray" onclick="ppToggleForm('sp')">Cancel</button>
-            </div>
-          </div>
-          <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
-              <thead><tr style="background:linear-gradient(90deg,#d6e8f5,#ddeaf8)">
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Resident</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">House / bed</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Monthly rent</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Deposit</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Paid</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Due</th>
-                <th style="text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Status</th>
-                <th></th>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr style="background:#f0f4fa">
+                <th>Resident</th><th>House / bed</th><th>Move-in</th><th>Rent due</th><th>Paid</th><th>Balance</th><th>Status</th><th></th>
               </tr></thead>
-              <tbody id="pp-sp-body"></tbody>
+              <tbody id="pp-sp-tbody"></tbody>
             </table>
+            <div class="empty" id="pp-sp-empty" style="display:none">No records for this month.</div>
           </div>
+          <div class="count-note" id="pp-sp-count"></div>
         </div>
 
       </div>
     </div>
   </div>
 </div>
+
 
 <div id="tab-referral" class="tab-content">
   <div class="page">
@@ -1819,7 +1808,7 @@ function autoSync() {
     return;
   }
   console.log("Syncing eligibility count:", ELIGIBILITY_DATA.length);
-  const _payload = {action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES};
+  const _payload = {action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS};
   console.log('AUTOSYNC SENDING - invoices:', _payload.invoices.length, 'tracker:', _payload.tracker.length);
   fetch(scriptURL, {
     method:'POST', mode:'no-cors',
@@ -1906,6 +1895,7 @@ function loadFromSheet(onDone) {
       if (data.pp_beds && data.pp_beds.length>0) PP_BEDS = data.pp_beds;
       if (data.pp_selfpay && data.pp_selfpay.length>0) PP_SELFPAY = data.pp_selfpay;
       if (data.pp_sr_invoices && data.pp_sr_invoices.length>0) PP_SR_INVOICES = data.pp_sr_invoices;
+      if (data.pp_sr_months && data.pp_sr_months.length>0) PP_SR_MONTHS = data.pp_sr_months;
       markSaved(data.lastSaved);
       // Propagate existing moved-out invoice patients to eligibility
       deduplicateEligibility();
@@ -1948,7 +1938,7 @@ function syncNow() {
   fetch(scriptURL, {
     method:'POST', mode:'no-cors',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES})
+    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS})
   })
   .then(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; markSaved(new Date().toISOString()); showToast('Saved to Google Sheets ✓'); })
   .catch(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; showToast('Sync failed','error'); });
@@ -6543,7 +6533,7 @@ function savePHPaymentsDirect() {
   clearTimeout(autoSyncTimer);
   autoSyncTimer = setTimeout(function() {
     if (!dataReady) return;
-    const _payload = {action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES};
+    const _payload = {action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS};
     fetch(scriptURL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body:JSON.stringify(_payload)})
       .then(function(){ markSaved(new Date().toISOString()); showToast('\u2713 Saved'); })
       .catch(function(){});
@@ -7349,7 +7339,7 @@ function printDisbursementStatement(month) {
 
     // Footer
 
-    + '</div></body></html>';
+    + '</div></html>';
 
   var blob = new Blob([html], {type:'text/html;charset=utf-8'});
   var url  = URL.createObjectURL(blob);
@@ -7366,190 +7356,505 @@ function printDisbursementStatement(month) {
 
 
 
+
+
 // ═══════════ PRIVATE PAY ═══════════
-function ppMoney(n){return '$'+Number(n||0).toLocaleString();}
-function ppDaysLeft(s){
-  if(!s)return null;
-  var p=String(s).split('/');if(p.length!==3)return null;
-  var end=new Date(Number(p[2]),Number(p[0])-1,Number(p[1]));
-  var today=new Date();today.setHours(0,0,0,0);
-  return Math.round((end-today)/(86400000));
+var PP_SR_MONTHS = [];
+var PP_SR_MONTH_ORDER = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var ppSRActiveMonth = null;
+var ppSPActiveMonth = null;
+
+function ppSRMoney(n){return '$'+Number(n||0).toLocaleString();}
+
+// ── Called when Private Pay tab is opened ──
+var PP_DEFAULT_MONTHS = ['June','July','August','September','October','November','December'];
+
+function ppInit(){
+  // Pre-populate default months into SR and SP if not already present
+  PP_DEFAULT_MONTHS.forEach(function(m){
+    // For SR: months come from PP_BEDS entries — add placeholder if needed
+    // We track SR months separately
+    if(PP_SR_MONTHS.indexOf(m)===-1) PP_SR_MONTHS.push(m);
+    // For SP: months come from resident history entries
+    PP_SELFPAY.forEach(function(r){
+      if(!r.history) r.history=[];
+      var has=r.history.some(function(h){return h.month===m;});
+      if(!has) r.history.push({month:m,paid:0});
+    });
+  });
+  ppSrcSwitch('sacrec');
 }
-function ppStat(label,val,color){
-  return '<div class="inv-stat"><div class="inv-stat-label">'+label+'</div><div class="inv-stat-val"'+(color?' style="color:'+color+'"':'')+'>'+val+'</div></div>';
+
+function ppSrcSwitch(src){
+  document.getElementById('pp-src-sacrec').style.display = src==='sacrec'?'block':'none';
+  document.getElementById('pp-src-selfpay').style.display = src==='selfpay'?'block':'none';
+  document.getElementById('pp-pill-sacrec').classList.toggle('active', src==='sacrec');
+  document.getElementById('pp-pill-selfpay').classList.toggle('active', src==='selfpay');
+  if(src==='sacrec') ppSRRenderPills();
+  if(src==='selfpay') ppSPRenderPills();
 }
-function ppSwitch(v){
-  ppView=v;
-  var views=['overview','sacrec','selfpay'];
-  for(var xi=0;xi<views.length;xi++){
-    var xel=document.getElementById('pp-view-'+views[xi]);if(xel)xel.style.display=(views[xi]===v)?'block':'none';
-    var xpill=document.getElementById('pp-pill-'+views[xi]);if(xpill)xpill.classList.toggle('active',views[xi]===v);
+
+// ── SAC RECOVERY ──
+function ppSRToggleAdd(){
+  var f=document.getElementById('pp-sr-add-form');
+  if(f)f.classList.toggle('visible');
+}
+
+function ppSRGetMonths(){
+  var months=[].concat(PP_SR_MONTHS);
+  for(var i=0;i<PP_BEDS.length;i++){
+    var m=PP_BEDS[i].month;
+    if(m&&months.indexOf(m)===-1)months.push(m);
   }
-  if(v==='overview')ppRenderOverview();
-  if(v==='sacrec')renderSR();
-  if(v==='selfpay')renderSP();
+  months.sort(function(a,b){return PP_SR_MONTH_ORDER.indexOf(a)-PP_SR_MONTH_ORDER.indexOf(b);});
+  return months;
 }
-function ppToggleForm(w){var f=document.getElementById('pp-'+w+'-form');if(f)f.classList.toggle('visible');}
 
-function renderSR(){
-  var q=(document.getElementById('pp-sr-search')||{value:''}).value.toLowerCase();
-  var body=document.getElementById('pp-sr-body');if(!body)return;body.innerHTML='';
-  var filled=0,totalEarned=0;
-  for(var bi=0;bi<PP_BEDS.length;bi++){
-    var b=PP_BEDS[bi],i=bi;
-    if(b.patient)filled++;
-    var r=parseFloat((b.rate||'0').replace(/[^0-9.]/g,''))||PP_SR_RATE;
-    if(b.patient)totalEarned+=r;
-    var text=((b.house||'')+' '+(b.patient||'')).toLowerCase();
-    if(q&&text.indexOf(q)===-1)continue;
-    var rateStr=b.rate?(b.rate.indexOf('$')===0?b.rate:'$'+b.rate):'&mdash;';
-    body.insertAdjacentHTML('beforeend',
-      '<tr>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)">'+(b.house||'')+'</td>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-weight:500;color:#1a202c">'+(b.patient||'<span style="color:#a0aec0">&mdash; empty &mdash;</span>')+'</td>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;font-weight:600;color:#1e6b3d">'+rateStr+'</td>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-size:12px;color:#5d6b82">'+(b.movein||'&mdash;')+'</td>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-size:12px;color:#5d6b82">'+(b.end||'&mdash;')+'</td>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)"><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1" onclick="delSR('+i+')">&#x2715;</button></td>'+
-      '</tr>');
+function ppSRRenderPills(){
+  var months=ppSRGetMonths();
+  var el=document.getElementById('pp-sr-pills');
+  if(!el)return;
+  // Auto-select most recent month
+  if(months.length>0&&(!ppSRActiveMonth||months.indexOf(ppSRActiveMonth)===-1)){
+    ppSRActiveMonth=months[months.length-1];
   }
-  if(!body.innerHTML)body.innerHTML='<tr><td colspan="6" style="padding:32px;text-align:center;color:#a0aec0;font-size:13px">No patients yet. Click &ldquo;+ Add patient&rdquo; to get started.</td></tr>';
-  var statEl=document.getElementById('pp-sr-stats');
-  if(statEl)statEl.innerHTML=ppStat('Est. earned / mo',ppMoney(totalEarned),'#1e6b3d');
-  var al=document.getElementById('pp-sr-alert');if(al)al.innerHTML='';
-}
-function addSR(){
-  PP_BEDS.unshift({bed:'',house:document.getElementById('sr-f-house').value.trim(),patient:document.getElementById('sr-f-patient').value.trim(),rate:document.getElementById('sr-f-rate').value.trim(),movein:document.getElementById('sr-f-movein').value.trim(),end:document.getElementById('sr-f-end').value.trim(),history:[]});
-  ['sr-f-house','sr-f-patient','sr-f-rate','sr-f-movein','sr-f-end'].forEach(function(id){document.getElementById(id).value='';});
-  ppToggleForm('sr');renderSR();markUnsaved();showToast('Patient added');
-}
-function delSR(i){if(confirm('Remove this patient?')){PP_BEDS.splice(i,1);renderSR();markUnsaved();showToast('Removed');}}
-
-function spStatus(r){
-  if(r.paid>=r.rent)return{key:'paid',label:'Paid',cls:'badge-green'};
-  if(r.paid>0)return{key:'partial',label:'Partial',cls:'badge-orange'};
-  return{key:'overdue',label:'Overdue',cls:'badge-red'};
-}
-function renderSP(){
-  var q=(document.getElementById('pp-sp-search')||{value:''}).value.toLowerCase();
-  var f=(document.getElementById('pp-sp-filter')||{value:'all'}).value;
-  var body=document.getElementById('pp-sp-body');if(!body)return;body.innerHTML='';
-  var expected=0,collected=0,due=0,overdueCount=0,overdueAmt=0;
-  for(var ri=0;ri<PP_SELFPAY.length;ri++){
-    var r=PP_SELFPAY[ri],i=ri;
-    var st=spStatus(r);var owed=Math.max(0,r.rent-r.paid);
-    expected+=r.rent;collected+=r.paid;due+=owed;
-    if(st.key==='overdue'){overdueCount++;overdueAmt+=owed;}
-    var text=((r.name||'')+' '+(r.bed||'')).toLowerCase();
-    if(q&&text.indexOf(q)===-1)continue;
-    if(f!=='all'&&st.key!==f)continue;
-    body.insertAdjacentHTML('beforeend',
-      '<tr>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-weight:500;color:#1a202c">'+(r.name||'')+'</td>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-size:12px;color:#5d6b82">'+(r.bed||'')+'</td>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;font-weight:600;color:#1e6b3d">'+ppMoney(r.rent)+'</td>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-size:12px;color:#5d6b82">'+ppMoney(r.deposit)+'</td>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-size:12px">'+ppMoney(r.paid)+'</td>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-size:12px;color:'+(owed>0?'#a82828':'#1e6b3d')+'">'+ppMoney(owed)+'</td>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)"><span class="badge '+st.cls+'">'+st.label+'</span></td>'+
-      '<td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)"><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1" onclick="delSP('+i+')">&#x2715;</button></td>'+
-      '</tr>');
-  }
-  if(!body.innerHTML)body.innerHTML='<tr><td colspan="8" style="padding:32px;text-align:center;color:#a0aec0;font-size:13px">No self-pay residents yet.</td></tr>';
-  var statEl=document.getElementById('pp-sp-stats');
-  if(statEl)statEl.innerHTML=ppStat('Residents',PP_SELFPAY.length)+ppStat('Rent due',ppMoney(expected))+ppStat('Collected',ppMoney(collected),'#1e6b3d')+ppStat('Outstanding',ppMoney(due),due>0?'#a82828':null);
-  var al=document.getElementById('pp-sp-alert');
-  if(al)al.innerHTML=overdueCount>0?'<div style="background:#fffbea;border:1px solid #f0a060;border-radius:8px;padding:11px 16px;font-size:12.5px;color:#8a2f06;font-weight:500;margin-bottom:18px">&#x26A0; '+overdueCount+' resident'+(overdueCount>1?'s':'')+' overdue &mdash; '+ppMoney(overdueAmt)+'</div>':'';
-}
-function addSP(){
-  var name=document.getElementById('sp-f-name').value.trim();if(!name){showToast('Enter a name');return;}
-  PP_SELFPAY.unshift({name:name,bed:document.getElementById('sp-f-bed').value.trim(),rent:Number(document.getElementById('sp-f-rent').value)||0,deposit:Number(document.getElementById('sp-f-dep').value)||0,paid:Number(document.getElementById('sp-f-paid').value)||0});
-  ['sp-f-name','sp-f-bed','sp-f-rent','sp-f-dep','sp-f-paid'].forEach(function(id){document.getElementById(id).value='';});
-  ppToggleForm('sp');renderSP();markUnsaved();showToast('Resident added');
-}
-function delSP(i){if(confirm('Remove this resident?')){PP_SELFPAY.splice(i,1);renderSP();markUnsaved();showToast('Removed');}}
-
-function ppRenderOverview(){
-  var srFilled=0,srEarned=0;
-  for(var bi=0;bi<PP_BEDS.length;bi++){if(PP_BEDS[bi].patient){srFilled++;srEarned+=parseFloat((PP_BEDS[bi].rate||'0').replace(/[^0-9.]/g,''))||PP_SR_RATE;}}
-  var spExpected=0,spCollected=0;
-  for(var ri=0;ri<PP_SELFPAY.length;ri++){spExpected+=PP_SELFPAY[ri].rent;spCollected+=PP_SELFPAY[ri].paid;}
-  var spDue=Math.max(0,spExpected-spCollected);
-  var statEl=document.getElementById('pp-ov-stats');
-  if(statEl)statEl.innerHTML=ppStat('Beds filled',srFilled+PP_SELFPAY.length)+ppStat('Expected / mo',ppMoney(srEarned+spExpected))+ppStat('Collected',ppMoney(srEarned+spCollected),'#1e6b3d')+ppStat('Outstanding',ppMoney(spDue),spDue>0?'#a82828':null);
-  var body=document.getElementById('pp-ov-body');
-  if(body)body.innerHTML=
-    '<tr><td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-weight:500">Sac Recovery</td><td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)">'+srFilled+'</td><td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace">'+ppMoney(srEarned)+'</td><td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;color:#1e6b3d">'+ppMoney(srEarned)+'</td><td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)">$0</td></tr>'+
-    '<tr><td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-weight:500">Self-Pay</td><td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5)">'+PP_SELFPAY.length+'</td><td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace">'+ppMoney(spExpected)+'</td><td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;color:#1e6b3d">'+ppMoney(spCollected)+'</td><td style="padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);font-family:DM Mono,monospace;color:'+(spDue>0?'#a82828':'#1e6b3d')+'">'+ppMoney(spDue)+'</td></tr>'+
-    '<tr style="font-weight:600"><td style="padding:11px 12px">Total</td><td style="padding:11px 12px">'+(srFilled+PP_SELFPAY.length)+'</td><td style="padding:11px 12px;font-family:DM Mono,monospace">'+ppMoney(srEarned+spExpected)+'</td><td style="padding:11px 12px;font-family:DM Mono,monospace;color:#1e6b3d">'+ppMoney(srEarned+spCollected)+'</td><td style="padding:11px 12px;font-family:DM Mono,monospace;color:'+(spDue>0?'#a82828':'#1e6b3d')+'">'+ppMoney(spDue)+'</td></tr>';
+  var pillHtml='';
+  months.forEach(function(m){
+    var cls='pill'+(m===ppSRActiveMonth?' active':'');
+    pillHtml+='<button class="'+cls+'" data-month="'+m+'" onclick="ppSRSelectMonth(this.dataset.month)">'+m+'</button>';
+  });
+  el.innerHTML=pillHtml;
+  ppSRRender();
 }
 
-// ── Invoice generation ──
-function ppNextInvoiceNum(){
+function ppSRSelectMonth(m){
+  ppSRActiveMonth=m;
+  ppSRRenderPills();
+}
+
+function ppSRAddPatient(){
+  var name=document.getElementById('pp-sr-f-name').value.trim();
+  if(!name){showToast('Enter a patient name');return;}
+  var month=ppSRActiveMonth||PP_SR_MONTH_ORDER[new Date().getMonth()];
+  var invNum=ppSRNextInvNum();
+  var entry={
+    name:name,
+    house:document.getElementById('pp-sr-f-house').value.trim(),
+    movein:document.getElementById('pp-sr-f-movein').value.trim(),
+    end:document.getElementById('pp-sr-f-end').value.trim(),
+    rate:document.getElementById('pp-sr-f-rate').value.trim()||'850',
+    month:month,
+    invoice:invNum,
+    status:'Invoiced'
+  };
+  PP_BEDS.unshift(entry);
+  ['pp-sr-f-name','pp-sr-f-house','pp-sr-f-movein','pp-sr-f-end','pp-sr-f-rate'].forEach(function(id){document.getElementById(id).value='';});
+  ppSRToggleAdd();
+  ppSRActiveMonth=month;
+  ppSRRenderPills();
+  markUnsaved();
+  showToast('Patient added — '+invNum);
+}
+
+function ppSRNextInvNum(){
   var max=0;
-  for(var i=0;i<PP_SR_INVOICES.length;i++){var n=parseInt((PP_SR_INVOICES[i].num||'').replace('FL-PP-',''))||0;if(n>max)max=n;}
+  for(var i=0;i<PP_BEDS.length;i++){
+    var inv=PP_BEDS[i].invoice||'';
+    var n=parseInt(inv.replace('FL-PP-',''))||0;
+    if(n>max)max=n;
+  }
   return 'FL-PP-'+(String(max+1).padStart(3,'0'));
 }
-function generatePPInvoice(){
-  var beds=PP_BEDS.filter(function(b){return b.patient;});
-  if(beds.length===0){showToast('No active patients to invoice');return;}
-  var num=ppNextInvoiceNum();
-  var d=new Date();
-  var period=d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
-  var date=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-  var items=beds.map(function(b){return{house:b.house,patient:b.patient,rate:parseFloat((b.rate||'0').replace(/[^0-9.]/g,''))||PP_SR_RATE,movein:b.movein||'',end:b.end||''};});
-  var total=items.reduce(function(s,it){return s+it.rate;},0);
-  var inv={num:num,period:period,date:date,beds:items.length,total:total,items:items,status:'Unpaid'};
-  PP_SR_INVOICES.unshift(inv);
-  markUnsaved();
-  showToast(num+' created');
-  viewPPInvoice(0);
-}
-function viewPPInvoice(i){
-  var inv=PP_SR_INVOICES[i];
-  var rows='';
-  inv.items.forEach(function(it){
-    rows+='<tr>'+
-      '<td style="padding:10px 12px;border-bottom:1px solid #eee;font-weight:500">'+it.patient+'</td>'+
-      '<td style="padding:10px 12px;border-bottom:1px solid #eee;color:#5d6b82">'+it.house+'</td>'+
-      '<td style="padding:10px 12px;border-bottom:1px solid #eee;color:#5d6b82">'+(it.movein||'&mdash;')+'</td>'+
-      '<td style="padding:10px 12px;border-bottom:1px solid #eee;color:#5d6b82">'+(it.end||'&mdash;')+'</td>'+
-      '<td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;font-family:DM Mono,monospace;font-weight:600;color:#1e6b3d">$'+Number(it.rate).toLocaleString()+'.00</td>'+
-    '</tr>';
+
+function ppSRRender(){
+  if(!ppSRActiveMonth){
+    var tbody=document.getElementById('pp-sr-tbody');
+    if(tbody)tbody.innerHTML='';
+    var empty=document.getElementById('pp-sr-empty');
+    if(empty){empty.style.display='';empty.textContent='Select a month or add a patient to get started.';}
+    return;
+  }
+  var q=(document.getElementById('pp-sr-search')||{value:''}).value.toLowerCase();
+  var f=(document.getElementById('pp-sr-filter')||{value:'all'}).value;
+  var rows=PP_BEDS.filter(function(r){return r.month===ppSRActiveMonth;});
+  var filtered=rows.filter(function(r){
+    if(q&&(r.name||'').toLowerCase().indexOf(q)===-1&&(r.house||'').toLowerCase().indexOf(q)===-1)return false;
+    if(f!=='all'&&(r.status||'').toLowerCase()!==f)return false;
+    return true;
   });
+
+  var tbody=document.getElementById('pp-sr-tbody');
+  var empty=document.getElementById('pp-sr-empty');
+  var count=document.getElementById('pp-sr-count');
+  var stats=document.getElementById('pp-sr-stats');
+
+  if(!filtered.length){
+    if(tbody)tbody.innerHTML='<tr><td colspan="8" style="padding:32px;text-align:center;color:#a0aec0;font-size:13px">No patients for '+ppSRActiveMonth+'. Click &ldquo;+ Add patient&rdquo; to add one.</td></tr>';
+    if(empty)empty.style.display='none';
+    if(count)count.textContent='';
+  } else {
+    if(empty)empty.style.display='none';
+    if(count)count.textContent='Showing '+filtered.length+' of '+rows.length+' patients for '+ppSRActiveMonth;
+    var totalBilled=rows.reduce(function(s,r){return s+(parseFloat(r.rate)||0);},0);
+    var paidCount=rows.filter(function(r){return r.status==='Paid';}).length;
+    if(stats)stats.innerHTML='<div class="inv-summary">'+
+      ppSRStat('Total billed',ppSRMoney(totalBilled))+
+      ppSRStat('Patients',rows.length)+
+      ppSRStat('Paid',paidCount+' of '+rows.length)+
+      '</div>';
+    // Build indexed list to avoid indexOf issues
+    var indexedFiltered=[];
+    for(var bi=0;bi<PP_BEDS.length;bi++){
+      var r=PP_BEDS[bi];
+      if(r.month!==ppSRActiveMonth) continue;
+      if(q&&(r.name||'').toLowerCase().indexOf(q)===-1&&(r.house||'').toLowerCase().indexOf(q)===-1) continue;
+      if(f!=='all'&&(r.status||'').toLowerCase()!==f) continue;
+      indexedFiltered.push({r:r,i:bi});
+    }
+    var ce='contenteditable="true" style="outline:none;min-width:10px;cursor:text" onblur="ppSRSaveCell(this)"';
+    if(tbody)tbody.innerHTML=indexedFiltered.map(function(item){
+      var r=item.r; var i=item.i;
+      return '<tr data-idx="'+i+'">'+
+        '<td style="font-family:DM Mono,monospace;font-size:12px;font-weight:600" '+ce+' data-field="invoice">'+(r.invoice||'')+'</td>'+
+        '<td style="font-weight:500;color:#1a202c" '+ce+' data-field="name">'+(r.name||'')+'</td>'+
+        '<td style="color:#5d6b82" '+ce+' data-field="house">'+(r.house||'')+'</td>'+
+        '<td style="font-size:12px;color:#5d6b82" '+ce+' data-field="movein">'+(r.movein||'')+'</td>'+
+        '<td style="font-size:12px;color:#5d6b82" '+ce+' data-field="end">'+(r.end||'')+'</td>'+
+        '<td style="font-family:DM Mono,monospace;font-weight:600;color:#1e6b3d" '+ce+' data-field="rate">'+(r.rate||'')+'</td>'+
+        '<td><select onchange="ppSRUpdateStatus('+i+',this.value)" style="font-size:12px;border:1px solid #dde2ea;border-radius:6px;padding:4px 8px;font-family:inherit;background:#fff">'+
+          ['Invoiced','Paid','Pending'].map(function(s){return '<option'+(r.status===s?' selected':'')+'>'+s+'</option>';}).join('')+
+        '</select></td>'+
+        '<td><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1" onclick="ppSRDel('+i+')">&#x2715;</button></td>'+
+        '</tr>';
+    }).join('');
+  }
+}
+
+function ppSRStat(label,val,color){
+  return '<div class="inv-stat"><div class="inv-stat-label">'+label+'</div><div class="inv-stat-val"'+(color?' style="color:'+color+'"':'')+'>'+val+'</div></div>';
+}
+
+function ppSRUpdateStatus(i,val){
+  PP_BEDS[i].status=val;
+  ppSRRender();
+  markUnsaved();
+}
+function ppSRDel(i){
+  if(confirm('Remove this patient?')){PP_BEDS.splice(i,1);ppSRRenderPills();markUnsaved();showToast('Removed');}
+}
+function ppSRPrintAll(){
+  if(!ppSRActiveMonth||!PP_BEDS.filter(function(r){return r.month===ppSRActiveMonth;}).length){
+    showToast('No patients to print for this month');return;
+  }
+  var rows=PP_BEDS.filter(function(r){return r.month===ppSRActiveMonth;});
+  var total=rows.reduce(function(s,r){return s+(parseFloat(r.rate)||0);},0);
+  var rowsHtml=rows.map(function(r){
+    return '<tr>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:DM Mono,monospace;font-size:12px">'+(r.invoice||'')+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;font-weight:500">'+(r.name||'')+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;color:#5d6b82">'+(r.house||'')+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;color:#5d6b82">'+(r.movein||'&mdash;')+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;color:#5d6b82">'+(r.end||'&mdash;')+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;font-family:DM Mono,monospace;font-weight:600;color:#1e6b3d">$'+(r.rate||0)+'.00</td>'+
+    '</tr>';
+  }).join('');
   document.getElementById('pp-inv-content').innerHTML=
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px">'+
-      '<div><div style="font-size:22px;font-weight:700;color:#0f2035">Foundation Living LLC</div><div style="font-size:11px;color:#8fa4c0;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px">Sacramento County, California</div></div>'+
-      '<div style="text-align:right"><div style="font-size:26px;font-weight:300;color:#0f2035;letter-spacing:2px;text-transform:uppercase">Invoice</div><div style="font-family:DM Mono,monospace;font-size:15px;font-weight:600;color:#2d6a1f;margin-top:4px">'+inv.num+'</div></div>'+
+      '<div><div style="font-size:22px;font-weight:700;color:#0f2035">Foundation Living LLC</div>'+
+      '<div style="font-size:11px;color:#8fa4c0;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px">Sacramento County, California</div></div>'+
+      '<div style="text-align:right"><div style="font-size:26px;font-weight:300;color:#0f2035;letter-spacing:2px;text-transform:uppercase">Invoice</div>'+
+      '<div style="font-size:13px;color:#5d6b82;margin-top:6px"><strong>Period:</strong> '+ppSRActiveMonth+'</div>'+
+      '<div style="font-size:13px;color:#5d6b82;margin-top:2px"><strong>Date:</strong> '+new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+'</div></div>'+
     '</div>'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;background:#f8fafb;border:1px solid #e5e9ef;border-radius:10px;padding:18px">'+
-      '<div><div style="font-size:10px;font-weight:700;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px">Bill to</div><div style="font-weight:600;color:#0f2035">Sac Recovery</div><div style="font-size:12px;color:#5d6b82">Rehabilitation / Recovery Facility</div></div>'+
-      '<div style="text-align:right"><div style="font-size:10px;font-weight:700;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px">Invoice details</div><div style="font-size:13px;color:#0f2035"><strong>Date:</strong> '+inv.date+'</div><div style="font-size:13px;color:#0f2035;margin-top:2px"><strong>Period:</strong> '+inv.period+'</div><div style="font-size:13px;margin-top:2px"><strong>Status:</strong> <span style="color:'+(inv.status==='Paid'?'#1e6b3d':'#a82828')+'">'+inv.status+'</span></div></div>'+
+    '<div style="background:#f8fafb;border:1px solid #e5e9ef;border-radius:10px;padding:16px 18px;margin-bottom:24px">'+
+      '<div style="font-size:10px;font-weight:700;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px">Bill to</div>'+
+      '<div style="font-weight:600;color:#0f2035">Sac Recovery</div>'+
+      '<div style="font-size:12px;color:#5d6b82">Rehabilitation / Recovery Facility</div>'+
     '</div>'+
     '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">'+
       '<thead><tr style="background:linear-gradient(90deg,#0f2035,#1c3455)">'+
+        '<th style="text-align:left;padding:11px 12px;color:#fff;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em">Invoice #</th>'+
         '<th style="text-align:left;padding:11px 12px;color:#fff;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em">Patient</th>'+
         '<th style="text-align:left;padding:11px 12px;color:#fff;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em">House</th>'+
         '<th style="text-align:left;padding:11px 12px;color:#fff;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em">Move-in</th>'+
         '<th style="text-align:left;padding:11px 12px;color:#fff;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em">Agmt. Expires</th>'+
         '<th style="text-align:right;padding:11px 12px;color:#fff;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em">Monthly Rate</th>'+
       '</tr></thead>'+
-      '<tbody>'+rows+'</tbody>'+
+      '<tbody>'+rowsHtml+'</tbody>'+
     '</table>'+
     '<div style="display:flex;justify-content:flex-end;margin-bottom:28px">'+
       '<div style="background:#eef7ea;border:1px solid #b8dab0;border-radius:10px;padding:16px 24px;min-width:200px;text-align:right">'+
         '<div style="font-size:10px;color:#7a8fa8;text-transform:uppercase;font-weight:600;letter-spacing:0.07em;margin-bottom:5px">Total due</div>'+
-        '<div style="font-size:30px;font-weight:700;color:#1e6b3d;font-family:DM Mono,monospace">$'+Number(inv.total).toLocaleString()+'.00</div>'+
+        '<div style="font-size:30px;font-weight:700;color:#1e6b3d;font-family:DM Mono,monospace">$'+Number(total).toLocaleString()+'.00</div>'+
       '</div>'+
     '</div>'+
     '<div style="border-top:1px solid #eee;padding-top:14px;font-size:11px;color:#9aabb8;text-align:center">Foundation Living LLC &mdash; Sacramento County, CA &mdash; Thank you for your partnership.</div>';
-  document.getElementById('pp-inv-overlay').style.display='block';
+  var ov=document.getElementById('pp-inv-overlay');
+  ov.style.display='block';
+  ov.scrollTop=0;
   document.body.style.overflow='hidden';
 }
+
+// ── SELF PAY ──
+function ppSPToggleAdd(){var f=document.getElementById('pp-sp-add-form');if(f)f.classList.toggle('visible');}
+
+function ppSPGetMonths(){
+  var months=[].concat(PP_DEFAULT_MONTHS);
+  for(var i=0;i<PP_SELFPAY.length;i++){
+    var hist=PP_SELFPAY[i].history||[];
+    for(var hi=0;hi<hist.length;hi++){
+      if(months.indexOf(hist[hi].month)===-1)months.push(hist[hi].month);
+    }
+  }
+  months.sort(function(a,b){return PP_SR_MONTH_ORDER.indexOf(a)-PP_SR_MONTH_ORDER.indexOf(b);});
+  return months;
+}
+
+function ppSPRenderPills(){
+  var months=ppSPGetMonths();
+  // Also check if current month exists
+  var curMonth=PP_SR_MONTH_ORDER[new Date().getMonth()];
+  if(months.indexOf(curMonth)===-1){
+    // Add current month if no months yet, or keep empty
+  }
+  var el=document.getElementById('pp-sp-pills');
+  if(!el)return;
+  if(months.length>0&&(!ppSPActiveMonth||months.indexOf(ppSPActiveMonth)===-1)){
+    ppSPActiveMonth=months[months.length-1];
+  }
+  var pillHtml2='';
+  months.forEach(function(m){
+    var cls2='pill'+(m===ppSPActiveMonth?' active':'');
+    pillHtml2+='<button class="'+cls2+'" data-month="'+m+'" onclick="ppSPSelectMonth(this.dataset.month)">'+m+'</button>';
+  });
+  el.innerHTML=pillHtml2;
+  if(!months.length){
+    el.innerHTML='<span style="font-size:12px;color:#a0aec0">No months yet — add a resident to get started</span>';
+  }
+  ppSPRender();
+}
+
+function ppSPSelectMonth(m){ppSPActiveMonth=m;ppSPRenderPills();}
+
+function ppSPAddResident(){
+  var name=document.getElementById('pp-sp-f-name').value.trim();
+  if(!name){showToast('Enter a resident name');return;}
+  var curMonth=PP_SR_MONTH_ORDER[new Date().getMonth()];
+  var entry={
+    name:name,
+    bed:document.getElementById('pp-sp-f-bed').value.trim(),
+    movein:document.getElementById('pp-sp-f-movein').value.trim(),
+    rent:parseFloat(document.getElementById('pp-sp-f-rent').value)||0,
+    deposit:parseFloat(document.getElementById('pp-sp-f-dep').value)||0,
+    history:[{month:curMonth,paid:0}]
+  };
+  PP_SELFPAY.unshift(entry);
+  ['pp-sp-f-name','pp-sp-f-bed','pp-sp-f-movein','pp-sp-f-rent','pp-sp-f-dep'].forEach(function(id){document.getElementById(id).value='';});
+  ppSPToggleAdd();
+  ppSPActiveMonth=curMonth;
+  ppSPRenderPills();
+  markUnsaved();
+  showToast('Resident added');
+}
+
+function ppSPRender(){
+  var q=(document.getElementById('pp-sp-search')||{value:''}).value.toLowerCase();
+  var f=(document.getElementById('pp-sp-filter')||{value:'all'}).value;
+  var tbody=document.getElementById('pp-sp-tbody');
+  var empty=document.getElementById('pp-sp-empty');
+  var count=document.getElementById('pp-sp-count');
+  var stats=document.getElementById('pp-sp-stats');
+
+  if(!ppSPActiveMonth||!PP_SELFPAY.length){
+    if(tbody)tbody.innerHTML='';
+    if(empty){empty.style.display='';empty.textContent='No residents yet. Add a resident to get started.';}
+    if(count)count.textContent='';
+    if(stats)stats.innerHTML='';
+    return;
+  }
+
+  var rows=PP_SELFPAY.filter(function(r){
+    if(q&&(r.name||'').toLowerCase().indexOf(q)===-1&&(r.bed||'').toLowerCase().indexOf(q)===-1)return false;
+    var hist=r.history||[];
+    var entry=null;
+    for(var hi=0;hi<hist.length;hi++){if(hist[hi].month===ppSPActiveMonth){entry=hist[hi];break;}}
+    var paid=entry?entry.paid:0;
+    var rent=r.rent||0;
+    var st=paid>=rent?'paid':paid>0?'partial':'overdue';
+    if(f!=='all'&&st!==f)return false;
+    return true;
+  });
+
+  var totalDue=0,totalPaid=0;
+  PP_SELFPAY.forEach(function(r){
+    var hist=r.history||[];
+    var entry=null;
+    for(var hi=0;hi<hist.length;hi++){if(hist[hi].month===ppSPActiveMonth){entry=hist[hi];break;}}
+    totalDue+=r.rent||0;
+    totalPaid+=entry?entry.paid:0;
+  });
+
+  if(stats)stats.innerHTML='<div class="inv-summary">'+
+    ppSRStat('Residents',PP_SELFPAY.length)+
+    ppSRStat('Rent due',ppSRMoney(totalDue))+
+    ppSRStat('Collected',ppSRMoney(totalPaid),'#1e6b3d')+
+    ppSRStat('Outstanding',ppSRMoney(Math.max(0,totalDue-totalPaid)),totalDue>totalPaid?'#a82828':null)+
+    '</div>';
+
+  if(!rows.length){
+    if(tbody)tbody.innerHTML='';
+    if(empty){empty.style.display='';empty.textContent='No residents match for '+ppSPActiveMonth+'.';}
+    if(count)count.textContent='';
+    return;
+  }
+
+  if(empty)empty.style.display='none';
+  if(count)count.textContent='Showing '+rows.length+' residents for '+ppSPActiveMonth;
+
+  var spIndexed=[];
+  for(var si=0;si<PP_SELFPAY.length;si++){
+    var r2=PP_SELFPAY[si];
+    var hist2=r2.history||[];
+    var entry2=null;
+    for(var hi2=0;hi2<hist2.length;hi2++){if(hist2[hi2].month===ppSPActiveMonth){entry2=hist2[hi2];break;}}
+    var paid2=entry2?entry2.paid:0;
+    var rent2=r2.rent||0;
+    var st2=paid2>=rent2?'paid':paid2>0?'partial':'overdue';
+    if(q&&(r2.name||'').toLowerCase().indexOf(q)===-1&&(r2.bed||'').toLowerCase().indexOf(q)===-1) continue;
+    if(f!=='all'&&st2!==f) continue;
+    spIndexed.push({r:r2,ri:si,entry:entry2,paid:paid2,rent:rent2,balance:Math.max(0,rent2-paid2),st:st2});
+  }
+  var ce2='contenteditable="true" style="outline:none;min-width:10px;cursor:text" onblur="ppSPSaveCell(this)"';
+  if(tbody)tbody.innerHTML=spIndexed.map(function(item){
+    var r=item.r; var ri=item.ri;
+    var paid=item.paid; var rent=item.rent; var balance=item.balance;
+    var st=item.st==='paid'?{cls:'badge-green',label:'Paid'}:item.st==='partial'?{cls:'badge-orange',label:'Partial'}:{cls:'badge-red',label:'Overdue'};
+    return '<tr data-idx="'+ri+'">'+
+      '<td style="font-weight:500;color:#1a202c" '+ce2+' data-field="name">'+(r.name||'')+'</td>'+
+      '<td style="font-size:12px;color:#5d6b82" '+ce2+' data-field="bed">'+(r.bed||'')+'</td>'+
+      '<td style="font-size:12px;color:#5d6b82" '+ce2+' data-field="movein">'+(r.movein||'')+'</td>'+
+      '<td style="font-family:DM Mono,monospace" '+ce2+' data-field="rent">'+rent+'</td>'+
+      '<td><input type="text" value="'+paid+'" style="width:80px;padding:4px 8px;border:1px solid #dde2ea;border-radius:5px;font-size:12px;font-family:DM Mono,monospace" onchange="ppSPUpdatePaid('+ri+',this.value)"></td>'+
+      '<td style="font-family:DM Mono,monospace;color:'+(balance>0?'#a82828':'#1e6b3d')+'">'+ppSRMoney(balance)+'</td>'+
+      '<td><span class="badge '+st.cls+'">'+st.label+'</span></td>'+
+      '<td><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1" onclick="ppSPDel('+ri+')">&#x2715;</button></td>'+
+      '</tr>';
+  }).join('');
+}
+
+function ppSPUpdatePaid(ri,val){
+  var paid=parseFloat(val)||0;
+  var hist=PP_SELFPAY[ri].history||[];
+  var found=false;
+  for(var hi=0;hi<hist.length;hi++){if(hist[hi].month===ppSPActiveMonth){hist[hi].paid=paid;found=true;break;}}
+  if(!found)hist.push({month:ppSPActiveMonth,paid:paid});
+  PP_SELFPAY[ri].history=hist;
+  ppSPRender();
+  markUnsaved();
+}
+function ppSPDel(i){if(confirm('Remove this resident?')){PP_SELFPAY.splice(i,1);ppSPRenderPills();markUnsaved();showToast('Removed');}}
+
+// ── PP Edit Modal ──
+var ppEditType = null;
+var ppEditIdx = null;
+
+function ppSRSaveCell(td){
+  var tr=td.parentNode;
+  var i=parseInt(tr.dataset.idx);
+  var field=td.dataset.field;
+  if(isNaN(i)||!field||!PP_BEDS[i]) return;
+  PP_BEDS[i][field]=td.textContent.trim();
+  markUnsaved();
+}
+function ppSPSaveCell(td){
+  var tr=td.parentNode;
+  var ri=parseInt(tr.dataset.idx);
+  var field=td.dataset.field;
+  if(isNaN(ri)||!field||!PP_SELFPAY[ri]) return;
+  var val=td.textContent.trim();
+  PP_SELFPAY[ri][field]=field==='rent'||field==='deposit'?parseFloat(val)||0:val;
+  if(field==='rent') ppSPRender();
+  markUnsaved();
+}
+function ppSRSave(i,field,val){
+  if(PP_BEDS[i]===undefined) return;
+  PP_BEDS[i][field]=val.trim();
+  markUnsaved();
+}
+function ppSPSave(ri,field,val){
+  if(PP_SELFPAY[ri]===undefined) return;
+  PP_SELFPAY[ri][field]=field==='rent'||field==='deposit'?parseFloat(val)||0:val.trim();
+  if(field==='rent') ppSPRender();
+  markUnsaved();
+}
+function ppSREdit(i){
+  ppEditType='sr'; ppEditIdx=i;
+  var r=PP_BEDS[i];
+  document.getElementById('pp-edit-title').textContent='Edit patient';
+  document.getElementById('pp-edit-fields').innerHTML=
+    ppEditField('Name','pp-ef-name',r.name||'')+
+    ppEditField('House','pp-ef-house',r.house||'')+
+    ppEditField('Monthly rate','pp-ef-rate',r.rate||'')+
+    ppEditField('Move-in date','pp-ef-movein',r.movein||'')+
+    ppEditField('Agreement expires','pp-ef-end',r.end||'')+
+    ppEditField('Invoice #','pp-ef-invoice',r.invoice||'')+
+    '<div class="form-field"><label style="font-size:9.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">Status</label>'+
+    '<select id="pp-ef-status" style="padding:8px 11px;font-size:13px;font-family:inherit;border:1.5px solid #dde2ea;border-radius:7px;background:#fafbfc">'+
+    ['Invoiced','Paid','Pending'].map(function(s){return '<option'+(r.status===s?' selected':'')+'>'+s+'</option>';}).join('')+
+    '</select></div>';
+  document.getElementById('pp-edit-modal').style.display='block';
+}
+
+function ppSPEdit(i){
+  ppEditType='sp'; ppEditIdx=i;
+  var r=PP_SELFPAY[i];
+  document.getElementById('pp-edit-title').textContent='Edit resident';
+  document.getElementById('pp-edit-fields').innerHTML=
+    ppEditField('Name','pp-ef-name',r.name||'')+
+    ppEditField('House / bed','pp-ef-house',r.bed||'')+
+    ppEditField('Monthly rent','pp-ef-rate',r.rent||'')+
+    ppEditField('Deposit','pp-ef-movein',r.deposit||'')+
+    ppEditField('Move-in date','pp-ef-end',r.movein||'');
+  document.getElementById('pp-edit-modal').style.display='block';
+}
+
+function ppEditField(label,id,val){
+  return '<div class="form-field"><label style="font-size:9.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em">'+label+'</label>'+
+    '<input type="text" id="'+id+'" value="'+val+'" style="padding:8px 11px;font-size:13px;font-family:inherit;border:1.5px solid #dde2ea;border-radius:7px;background:#fafbfc;outline:none;width:100%"></div>';
+}
+
+function ppSaveEdit(){
+  if(ppEditType==='sr'&&ppEditIdx!==null){
+    var r=PP_BEDS[ppEditIdx];
+    r.name=document.getElementById('pp-ef-name').value.trim();
+    r.house=document.getElementById('pp-ef-house').value.trim();
+    r.rate=document.getElementById('pp-ef-rate').value.trim();
+    r.movein=document.getElementById('pp-ef-movein').value.trim();
+    r.end=document.getElementById('pp-ef-end').value.trim();
+    r.invoice=document.getElementById('pp-ef-invoice').value.trim();
+    r.status=document.getElementById('pp-ef-status').value;
+    ppCloseEdit(); ppSRRender(); markUnsaved(); showToast('Patient updated');
+  } else if(ppEditType==='sp'&&ppEditIdx!==null){
+    var r=PP_SELFPAY[ppEditIdx];
+    r.name=document.getElementById('pp-ef-name').value.trim();
+    r.bed=document.getElementById('pp-ef-house').value.trim();
+    r.rent=parseFloat(document.getElementById('pp-ef-rate').value)||0;
+    r.deposit=parseFloat(document.getElementById('pp-ef-movein').value)||0;
+    r.movein=document.getElementById('pp-ef-end').value.trim();
+    ppCloseEdit(); ppSPRender(); markUnsaved(); showToast('Resident updated');
+  }
+}
+
+function ppCloseEdit(){
+  document.getElementById('pp-edit-modal').style.display='none';
+  ppEditType=null; ppEditIdx=null;
+}
+
 function closePPInvoice(){
   document.getElementById('pp-inv-overlay').style.display='none';
   document.body.style.overflow='';
 }
+
 
 </script>
 <!-- Add Existing Patient Modal -->
@@ -7571,6 +7876,28 @@ function closePPInvoice(){
   </div>
 </div>
 
+
+
+<!-- PP Edit Modal -->
+<div id="pp-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:8000">
+  <div style="background:#fff;border-radius:14px;padding:24px;width:90%;max-width:520px;box-shadow:0 8px 40px rgba(0,0,0,0.18);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);max-height:90vh;overflow-y:auto">
+    <div style="font-size:15px;font-weight:600;color:#0f2035;margin-bottom:16px" id="pp-edit-title">Edit patient</div>
+    <div id="pp-edit-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-gray" onclick="ppCloseEdit()">Cancel</button>
+      <button class="btn btn-green" onclick="ppSaveEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- PP Invoice overlay -->
+<div id="pp-inv-overlay" style="display:none;position:fixed;inset:0;background:#fff;z-index:9999;overflow-y:auto;padding:40px">
+  <div id="pp-inv-content" style="max-width:700px;margin:0 auto"></div>
+  <div style="max-width:700px;margin:20px auto 0;display:flex;gap:10px" class="no-print">
+    <button class="btn btn-green" onclick="document.body.classList.add('printing-pp-invoice');window.print();setTimeout(function(){document.body.classList.remove('printing-pp-invoice');},1000)">Print / Save PDF</button>
+    <button class="btn btn-gray" onclick="closePPInvoice()">Close</button>
+  </div>
+</div>
 
 </body>
 </html>
