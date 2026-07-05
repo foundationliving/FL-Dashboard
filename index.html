@@ -5120,10 +5120,11 @@ function savePHPrior() {
     r.priorStart = ''; r.priorEnd = ''; r.priorDays = 0; r.priorTotal = 0;
     delete r.billingPeriods;
   }
+  r.total = 0; // force getPHDisplayTotal to recalculate
   document.getElementById('prior-modal-overlay').style.display = 'none';
   document.getElementById('prior-modal-overlay').removeAttribute('data-ph-mode');
   markUnsaved();
-  autoSyncPHEligibility();
+  syncNow();
   showToast('Billing periods saved');
   renderPH();
 }
@@ -7491,19 +7492,20 @@ function printDisbursementStatement(month) {
     // Match invoice tab logic exactly
     var fd = (agStatus==='active'||agStatus==='expiring') ? (r.firstDay ? formatDate(r.firstDay) : (eff.firstDay||'')) : '';
     var ld = (agStatus==='active'||agStatus==='expiring') ? (r.lastDay  ? formatDate(r.lastDay)  : (getLastDayFromPH(r.name,r.cin,r.month)||(eff.lastDay||''))) : '';
-    // Calculate days from the displayed dates
-    var days = 0;
-    if (fd && ld) {
-      try {
-        var d1 = new Date(fd), d2 = new Date(ld);
-        if (!isNaN(d1) && !isNaN(d2)) days = Math.max(0, Math.round((d2-d1)/86400000)+1);
-      } catch(e) {}
-    }
-    if (!days) days = getPHDays(r);
+    // Derive days from total amount so it always matches exactly
     var amt = getPHDisplayTotal(r); gross += amt;
+    var days = amt > 0 ? Math.round(amt / PH_RATE) : getPHDays(r);
+    // Show billing period date range if present
+    var displayFd = fd, displayLd = ld;
+    if (r.billingPeriods && r.billingPeriods.length > 0) {
+      var allStarts = r.billingPeriods.map(function(p){ return safeParseDate(p.start); }).filter(function(d){ return !isNaN(d); });
+      var allEnds = r.billingPeriods.map(function(p){ return safeParseDate(p.end); }).filter(function(d){ return !isNaN(d); });
+      if (allStarts.length) { var mn=new Date(Math.min.apply(null,allStarts)); displayFd=(mn.getMonth()+1)+'/'+mn.getDate()+'/'+mn.getFullYear(); }
+      if (allEnds.length) { var mx=new Date(Math.max.apply(null,allEnds)); displayLd=(mx.getMonth()+1)+'/'+mx.getDate()+'/'+mx.getFullYear(); }
+    }
     var nameParts = (r.name||'').trim().split(/\s+/);
     var displayName = nameParts.length >= 2 ? nameParts[0].charAt(0) + ' ' + nameParts.slice(1).join(' ') : (r.name||'');
-    return '<tr><td>' + (i+1) + '</td><td>' + displayName + '</td><td>' + (fd||'—') + '</td><td>' + (ld||'—') + '</td><td>' + (days||'—') + '</td><td>$' + PH_RATE + '.00</td><td>$' + amt.toLocaleString() + '.00</td></tr>';
+    return '<tr><td>' + (i+1) + '</td><td>' + displayName + '</td><td>' + (displayFd||'—') + '</td><td>' + (displayLd||'—') + '</td><td>' + (days||'—') + '</td><td>$' + PH_RATE + '.00</td><td>$' + amt.toLocaleString() + '.00</td></tr>';
   }).join('');
 
   // Always use operating expense model (matching original slip layout)
