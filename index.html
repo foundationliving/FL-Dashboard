@@ -6276,26 +6276,16 @@ function toggleSelectAllPHPrint() {
 function confirmPHPrintAll() {
   const list = document.getElementById('ph-print-list');
   const rows = list._rows;
-  const selected = rows.filter((r,i) => { const cb = document.getElementById('ph_pr_'+i); return cb && cb.checked; });
-  closePHPrintAllModal();
-  if (!selected.length) { showToast('No patients selected'); return; }
-
-  const pages = selected.map(r => {
-    const idx = PH_INVOICE_DATA_ARR.indexOf(r);
-    return buildPHInvoiceHTML(idx);
-  }).filter(Boolean);
-
-  if (!pages.length) { showToast('Could not generate invoices', 'error'); return; }
-
-  const win = window.open('', '_blank');
-  if (!win) { showToast('Please allow popups to print invoices', 'error'); return; }
-  win.document.write('<html><head><style>@media print{.page-break{page-break-after:always}}</style></head><body>');
-  pages.forEach((html, i) => {
-    win.document.write('<div class="page-break">' + html + '</div>');
+  let printed = 0;
+  rows.forEach((r,i) => {
+    const cb = document.getElementById('ph_pr_'+i);
+    if (cb && cb.checked) {
+      const idx = PH_INVOICE_DATA_ARR.indexOf(r);
+      if (idx !== -1) { openPHInvoice(idx); printed++; }
+    }
   });
-  win.document.write('</body></html>');
-  win.document.close();
-  win.onload = function() { win.print(); };
+  closePHPrintAllModal();
+  if (printed > 0) showToast('\u2713 Opening ' + printed + ' invoice' + (printed > 1 ? 's' : ''));
 }
 
 // openPHInvoice moved to pipeline section below
