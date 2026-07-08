@@ -3980,9 +3980,15 @@ function printReferral() {
   window.print();
 }
 
-// Restore page after printing — stay on referral tab
+// Restore page after printing — stay on referral tab (only if printing referral)
 window.addEventListener('afterprint', function() {
-  switchAppTab('referral');
+  if (currentAppTab === 'referral') {
+    switchAppTab('referral');
+  }
+  // If a PH invoice queue is pending, open the next one
+  if (_phPrintQueue && _phPrintQueue.length > 0) {
+    setTimeout(_openNextPHInvoice, 150);
+  }
 });
 
 function emailReferral() {
@@ -6293,18 +6299,9 @@ function confirmPHPrintAll() {
 }
 
 function _openNextPHInvoice() {
-  if (_phPrintQueue.length === 0) return;
+  if (!_phPrintQueue || _phPrintQueue.length === 0) return;
   const idx = _phPrintQueue.shift();
   openPHInvoice(idx);
-  // Hook closeInvoice so next one opens automatically when this one is closed
-  if (_phPrintQueue.length > 0) {
-    const origClose = window.closeInvoice;
-    window.closeInvoice = function() {
-      origClose();
-      window.closeInvoice = origClose;
-      setTimeout(_openNextPHInvoice, 150);
-    };
-  }
 }
 
 // openPHInvoice moved to pipeline section below
