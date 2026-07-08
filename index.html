@@ -6227,12 +6227,26 @@ function closePHPrintAllModal() { document.getElementById('ph-print-all-modal').
 function confirmPHPrintAll() {
   const list = document.getElementById('ph-print-list');
   const rows = list._rows;
-  let printed = 0;
-  rows.forEach((r,i) => {
-    const cb = document.getElementById('ph_pr_'+i);
-    if (cb && cb.checked) { const idx = PH_INVOICE_DATA_ARR.indexOf(r); openPHInvoice(idx); printed++; }
-  });
+  const selected = rows.filter((r,i) => { const cb = document.getElementById('ph_pr_'+i); return cb && cb.checked; });
   closePHPrintAllModal();
+  if (!selected.length) { showToast('No patients selected'); return; }
+
+  const pages = selected.map(r => {
+    const idx = PH_INVOICE_DATA_ARR.indexOf(r);
+    return buildPHInvoiceHTML(idx);
+  }).filter(Boolean);
+
+  if (!pages.length) { showToast('Could not generate invoices', 'error'); return; }
+
+  const win = window.open('', '_blank');
+  if (!win) { showToast('Please allow popups to print invoices', 'error'); return; }
+  win.document.write('<html><head><style>@media print{.page-break{page-break-after:always}}</style></head><body>');
+  pages.forEach((html, i) => {
+    win.document.write('<div class="page-break">' + html + '</div>');
+  });
+  win.document.write('</body></html>');
+  win.document.close();
+  win.onload = function() { win.print(); };
 }
 
 // openPHInvoice moved to pipeline section below
@@ -7067,6 +7081,16 @@ function openPHInvoice(idx) {
 
 // ── Quick Add Invoice-Only Patient ───────────────────────────────────────────
 // Adds a patient directly to the invoice tab without touching the agreement tracker
+function buildPHInvoiceHTML(idx) {
+  try {
+    const r = PH_INVOICE_DATA_ARR[idx];
+    if (!r) return null;
+    openPHInvoice(idx);
+    const html = document.getElementById('invoice-body').innerHTML;
+    document.getElementById('invoice-overlay').setAttribute('style', 'display:none');
+    return '<div style="font-family:\'Barlow\',sans-serif;padding:40px;max-width:800px;margin:0 auto">' + html + '</div>';
+  } catch(e) { return null; }
+}
 function toggleQuickAddForm() {
   const form = document.getElementById('quick-add-form');
   if (!form) return;
