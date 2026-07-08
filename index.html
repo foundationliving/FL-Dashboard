@@ -3980,12 +3980,8 @@ function printReferral() {
   window.print();
 }
 
-// Restore page after printing — stay on referral tab (only if printing referral)
+// After printing: open next PH invoice if queue is pending
 window.addEventListener('afterprint', function() {
-  if (currentAppTab === 'referral') {
-    switchAppTab('referral');
-  }
-  // If a PH invoice queue is pending, open the next one
   if (_phPrintQueue && _phPrintQueue.length > 0) {
     setTimeout(_openNextPHInvoice, 150);
   }
@@ -5328,6 +5324,10 @@ function closeInvoice(){
   document.getElementById('invoice-overlay').style.display='none';
   const badge = document.getElementById('printed-badge');
   if (badge) badge.parentNode.removeChild(badge);
+  // Open next PH invoice if queue is pending
+  if (_phPrintQueue && _phPrintQueue.length > 0) {
+    setTimeout(_openNextPHInvoice, 150);
+  }
 }
 
 // ── Global error trap (debug) ─────────────────────────────────────────────────
