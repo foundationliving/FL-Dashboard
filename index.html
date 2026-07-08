@@ -6212,7 +6212,7 @@ function confirmPHAssign() {
     }
   });
   closePHAssignModal();
-  if (count>0) { markUnsaved(); autoSyncPHEligibility(); showToast('\u2713 Assigned '+count+' invoice number'+(count>1?'s':'')); renderPH(); }
+  if (count>0) { markUnsaved(); syncNow(); updateNextInvoice(); showToast('\u2713 Assigned '+count+' invoice number'+(count>1?'s':'')); renderPH(); }
 }
 
 // ── PH Copy to Next Month ─────────────────────────────────────────────────────
