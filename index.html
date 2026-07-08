@@ -6273,19 +6273,38 @@ function toggleSelectAllPHPrint() {
   cbs.forEach(c => c.checked = !allChecked);
   document.getElementById('ph-print-select-all-btn').textContent = allChecked ? 'Select all' : 'Deselect all';
 }
+let _phPrintQueue = [];
+
 function confirmPHPrintAll() {
   const list = document.getElementById('ph-print-list');
   const rows = list._rows;
-  let printed = 0;
+  _phPrintQueue = [];
   rows.forEach((r,i) => {
     const cb = document.getElementById('ph_pr_'+i);
     if (cb && cb.checked) {
       const idx = PH_INVOICE_DATA_ARR.indexOf(r);
-      if (idx !== -1) { openPHInvoice(idx); printed++; }
+      if (idx !== -1) _phPrintQueue.push(idx);
     }
   });
   closePHPrintAllModal();
-  if (printed > 0) showToast('\u2713 Opening ' + printed + ' invoice' + (printed > 1 ? 's' : ''));
+  if (_phPrintQueue.length === 0) { showToast('No patients selected'); return; }
+  showToast('\u2713 Opening ' + _phPrintQueue.length + ' invoice' + (_phPrintQueue.length > 1 ? 's — close each to open the next' : ''));
+  _openNextPHInvoice();
+}
+
+function _openNextPHInvoice() {
+  if (_phPrintQueue.length === 0) return;
+  const idx = _phPrintQueue.shift();
+  openPHInvoice(idx);
+  // Hook closeInvoice so next one opens automatically when this one is closed
+  if (_phPrintQueue.length > 0) {
+    const origClose = window.closeInvoice;
+    window.closeInvoice = function() {
+      origClose();
+      window.closeInvoice = origClose;
+      setTimeout(_openNextPHInvoice, 150);
+    };
+  }
 }
 
 // openPHInvoice moved to pipeline section below
