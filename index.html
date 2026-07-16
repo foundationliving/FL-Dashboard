@@ -672,6 +672,7 @@ if (authState === 'owner' || authState === '1') {
           <button class="btn btn-navy" onclick="openAssignModal()">🔢 Assign invoice #s</button>
           <button class="btn btn-navy" onclick="copyToNextMonth()">📋 Next Month</button>
           <button class="btn btn-gold" onclick="printAllInvoices()">🖨 Print Invoices</button>
+          <button class="btn btn-gray" onclick="exportFLInvoiceCSV()" title="Export June invoice list to CSV">⬇ Export CSV</button>
         </div>
       </div>
       <div class="section-body">
@@ -850,6 +851,7 @@ if (authState === 'owner' || authState === '1') {
             <button class="btn btn-navy" onclick="openPHAssignModal()">🔢 Assign invoice #s</button>
             <button class="btn btn-navy" onclick="openPHCopyModal()">📋 Next Month</button>
             <button class="btn btn-gold" onclick="openPHPrintAllModal()">🖨 Print Invoices</button>
+            <button class="btn btn-gray" onclick="exportPHInvoiceCSV()" title="Export PH invoice list to CSV">⬇ Export CSV</button>
           </div>
         </div>
 
@@ -7146,6 +7148,49 @@ function buildPHInvoiceHTML(idx) {
     return '<div style="font-family:\'Barlow\',sans-serif;padding:40px;max-width:800px;margin:0 auto">' + html + '</div>';
   } catch(e) { return null; }
 }
+function exportFLInvoiceCSV() {
+  const rows = INVOICE_DATA_ARR.filter(r => r.month === activeMonth && r.name);
+  if (!rows.length) { showToast('No invoices for ' + activeMonth, 'error'); return; }
+  const headers = ['Invoice #','Patient Name','CIN','First Day','Last Day','Amount','Status'];
+  const lines = [headers.join(',')];
+  rows.forEach(r => {
+    const agS = getAgreementStatus(r.name, r.cin, r.month);
+    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
+    const amt = (agS==='active'||agS==='expiring'||hasPeriods) ? getDisplayTotal(r) : 0;
+    const firstDay = r.firstDay || getAutoFirstDay(r.name, r.cin, r.month) || '';
+    const lastDay = r.lastDay || getLastDayFromAgreement(r.name, r.cin, r.month) || getAutoLastDay(r.name, r.cin, r.month) || '';
+    lines.push([r.invoice||'','"'+(r.name||'').replace(/"/g,'""')+'"',r.cin||'',firstDay,lastDay,amt>0?amt:'',getInvStatus(r)].join(','));
+  });
+  const total = rows.reduce((s,r) => { const agS=getAgreementStatus(r.name,r.cin,r.month); const hp=(r.billingPeriods&&r.billingPeriods.length>0)||r.priorStart; return s+((agS==='active'||agS==='expiring'||hp)?getDisplayTotal(r):0); },0);
+  lines.push(',,,,Total,'+total+',');
+  const blob = new Blob([lines.join('\n')],{type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'FL_Invoices_'+activeMonth+'_2026.csv'; a.click();
+  showToast('✓ Exported FL '+activeMonth+' invoices');
+}
+
+function exportPHInvoiceCSV() {
+  const rows = PH_INVOICE_DATA_ARR.filter(r => r.month === phActiveMonth && r.name);
+  if (!rows.length) { showToast('No PH invoices for ' + phActiveMonth, 'error'); return; }
+  const headers = ['Invoice #','Patient Name','CIN','First Day','Last Day','Amount','Status'];
+  const lines = [headers.join(',')];
+  rows.forEach(r => {
+    const agS = getPHAgreementStatus(r.name, r.cin, r.month);
+    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
+    const amt = (agS==='active'||agS==='expiring'||hasPeriods) ? getPHDisplayTotal(r) : 0;
+    const eff = getPHEffectiveDates(r);
+    const firstDay = r.firstDay || eff.firstDay || '';
+    const lastDay = r.lastDay || getLastDayFromPH(r.name,r.cin,r.month) || eff.lastDay || '';
+    lines.push([r.invoice||'','"'+(r.name||'').replace(/"/g,'""')+'"',r.cin||'',firstDay,lastDay,amt>0?amt:'',r.payment||'Billed'].join(','));
+  });
+  const total = rows.reduce((s,r) => { const agS=getPHAgreementStatus(r.name,r.cin,r.month); const hp=(r.billingPeriods&&r.billingPeriods.length>0)||r.priorStart; return s+((agS==='active'||agS==='expiring'||hp)?getPHDisplayTotal(r):0); },0);
+  lines.push(',,,,Total,'+total+',');
+  const blob = new Blob([lines.join('\n')],{type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'PH_Invoices_'+phActiveMonth+'_2026.csv'; a.click();
+  showToast('✓ Exported PH '+phActiveMonth+' invoices');
+}
+
 function toggleQuickAddForm() {
   const form = document.getElementById('quick-add-form');
   if (!form) return;
