@@ -2885,6 +2885,7 @@ function confirmAssign() {
       r.invoice = 'FL-' + next;
       // Auto-set to invoiced (billed) status
       if (!r.payment || !r.payment.includes('✓')) { r.payment = ''; }
+      snapshotInvoiceRow(r, false);
       next++;
       count++;
     }
@@ -4397,6 +4398,24 @@ function applyCINSuggestion(arrType, cin, event) {
 }
 
 
+// Snapshot calculated dates onto a row when an invoice number is assigned,
+// so later agreement changes never alter already-invoiced months.
+function snapshotInvoiceRow(r, isPH) {
+  if (!r) return;
+  try {
+    if (!r.firstDay) {
+      const f = isPH ? (getPHEffectiveDates(r).firstDay || getPHAutoFirstDay(r.name, r.cin, r.month))
+                     : getAutoFirstDay(r.name, r.cin, r.month);
+      if (f) r.firstDay = f;
+    }
+    if (!r.lastDay) {
+      const l = isPH ? (getLastDayFromPH(r.name, r.cin, r.month) || getPHEffectiveDates(r).lastDay)
+                     : (getLastDayFromAgreement(r.name, r.cin, r.month) || getAutoLastDay(r.name, r.cin, r.month));
+      if (l) r.lastDay = l;
+    }
+  } catch(e) {}
+}
+
 function saveInvoiceField(idx, val) {
   const clean = val.trim();
   INVOICE_DATA_ARR[idx].invoice = clean;
@@ -4407,6 +4426,7 @@ function saveInvoiceField(idx, val) {
       INVOICE_DATA_ARR[idx].payment = '';
       INVOICE_DATA_ARR[idx].agreement = INVOICE_DATA_ARR[idx].agreement === 'WAITING' ? 'ACTIVE' : INVOICE_DATA_ARR[idx].agreement;
     }
+    snapshotInvoiceRow(INVOICE_DATA_ARR[idx], false);
   } else if (clean === '') {
     // Invoice number cleared — revert to waiting
     if (!INVOICE_DATA_ARR[idx].payment || !INVOICE_DATA_ARR[idx].payment.includes('\u2713')) {
@@ -6216,6 +6236,7 @@ function confirmPHAssign() {
     if (cb && cb.checked) {
       r.invoice = 'FL-' + next + 'PH';
       if (!r.payment || !r.payment.includes('\u2713')) { r.payment = ''; }
+      snapshotInvoiceRow(r, true);
       next++; count++;
     }
   });
@@ -7350,10 +7371,11 @@ function togglePHMovedOut(idx, cb) {
 function savePHInvoiceField(idx, val) {
   const clean = val.trim();
   PH_INVOICE_DATA_ARR[idx].invoice = clean;
-  if (/^FL-\d+$/.test(clean)) {
+  if (/^FL-\d+(PH)?$/.test(clean)) {
     if (!PH_INVOICE_DATA_ARR[idx].payment || !PH_INVOICE_DATA_ARR[idx].payment.includes('\u2713')) {
       PH_INVOICE_DATA_ARR[idx].payment = '';
     }
+    snapshotInvoiceRow(PH_INVOICE_DATA_ARR[idx], true);
   } else if (clean === '') {
     if (!PH_INVOICE_DATA_ARR[idx].payment || !PH_INVOICE_DATA_ARR[idx].payment.includes('\u2713')) {
       PH_INVOICE_DATA_ARR[idx].payment = '';
