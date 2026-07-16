@@ -1737,6 +1737,8 @@ let currentAgTab = 'active';
 const _months=['January','February','March','April','May','June','July','August','September','October','November','December'];
 let activeMonth = _months[new Date().getMonth()];
 let phActiveMonth = _months[new Date().getMonth()];
+let FL_LOCKED_MONTHS = {}; // { 'June': true, 'May': true }
+let PH_LOCKED_MONTHS = {};
 let phInnerTab = 'agreements';
 let BAKED_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKuF93LjSLOvS97GjKAoUCsr4fA8JYfP0FLSiUFFv_BHRwtcIMgh8BhmFJlGPZjK6kRQ/exec';
 let _copyEligible = [];
@@ -1953,6 +1955,8 @@ function loadFromSheet(onDone) {
       if (data.ph_eligibility && data.ph_eligibility.length>0) PH_ELIGIBILITY_DATA = data.ph_eligibility;
       if (data.ph_tracker && data.ph_tracker.length>0) PH_TRACKER = data.ph_tracker;
       if (data.ph_payments) PH_PAYMENTS = data.ph_payments;
+      if (data.fl_locked_months) FL_LOCKED_MONTHS = data.fl_locked_months;
+      if (data.ph_locked_months) PH_LOCKED_MONTHS = data.ph_locked_months;
       if (data.pp_beds && data.pp_beds.length>0) PP_BEDS = data.pp_beds;
       if (data.pp_selfpay && data.pp_selfpay.length>0) PP_SELFPAY = data.pp_selfpay;
       if (data.pp_sr_invoices && data.pp_sr_invoices.length>0) PP_SR_INVOICES = data.pp_sr_invoices;
@@ -2000,7 +2004,7 @@ function syncNow() {
   fetch(scriptURL, {
     method:'POST', mode:'no-cors',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS, pp_facilities:PP_FACILITIES})
+    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS, pp_facilities:PP_FACILITIES, fl_locked_months:FL_LOCKED_MONTHS, ph_locked_months:PH_LOCKED_MONTHS})
   })
   .then(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; markSaved(new Date().toISOString()); showToast('Saved to Google Sheets ✓'); })
   .catch(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; showToast('Sync failed','error'); });
@@ -2390,9 +2394,11 @@ function monthStats(month) {
   return { total: allTotal, count: invoiced.length, billed: billed.length, billedTotal, diff: allTotal - billedTotal };
 }
 function renderPills() {
-  document.getElementById('month-pills').innerHTML = MONTHS.map(m=>
-    `<button class="pill${m===activeMonth?' active':''}" onclick="selectMonth('${m}')">${m}</button>`
-  ).join('');
+  document.getElementById('month-pills').innerHTML = MONTHS.map(m => {
+    const locked = isFLMonthLocked(m);
+    const lock = locked ? ` <span onclick="event.stopPropagation();unlockFLMonth('${m}')" title="Click to unlock ${m}" style="cursor:pointer">🔒</span>` : '';
+    return `<button class="pill${m===activeMonth?' active':''}" onclick="selectMonth('${m}')">${m}${lock}</button>`;
+  }).join('');
 }
 function selectMonth(m) {
   activeMonth=m; renderPills(); renderStats(); renderInvoices();
@@ -2893,7 +2899,8 @@ function confirmAssign() {
   closeAssignModal();
   if (count > 0) {
     markUnsaved();
-    showToast(`✓ Assigned ${count} invoice number${count > 1 ? 's' : ''}`);
+    lockFLMonth(activeMonth);
+    showToast(`✓ Assigned ${count} invoice number${count > 1 ? 's' : ''} — ${activeMonth} locked`);
     updateNextInvoice();
     renderStats();
     renderInvoices();
@@ -4400,6 +4407,56 @@ function applyCINSuggestion(arrType, cin, event) {
 
 // Snapshot calculated dates onto a row when an invoice number is assigned,
 // so later agreement changes never alter already-invoiced months.
+function isFLMonthLocked(month) { return !!(FL_LOCKED_MONTHS && FL_LOCKED_MONTHS[month]); }
+function isPHMonthLocked(month) { return !!(PH_LOCKED_MONTHS && PH_LOCKED_MONTHS[month]); }
+
+function lockFLMonth(month) {
+  FL_LOCKED_MONTHS[month] = true;
+  // Freeze all un-invoiced rows for this month
+  INVOICE_DATA_ARR.forEach(r => {
+    if (r.month !== month) return;
+    if (!r.invoice || !/^FL-\d+$/.test(r.invoice)) {
+      r.locked = true; // mark as locked — won't show amount
+    }
+  });
+  markUnsaved();
+  renderPills();
+  renderInvoices();
+  renderStats();
+}
+
+function lockPHMonth(month) {
+  PH_LOCKED_MONTHS[month] = true;
+  PH_INVOICE_DATA_ARR.forEach(r => {
+    if (r.month !== month) return;
+    if (!r.invoice || !/^FL-\d+(PH)?$/.test(r.invoice)) {
+      r.locked = true;
+    }
+  });
+  markUnsaved();
+  renderPHPills();
+  renderPHInvoices();
+}
+
+function unlockFLMonth(month) {
+  delete FL_LOCKED_MONTHS[month];
+  INVOICE_DATA_ARR.forEach(r => { if (r.month === month) delete r.locked; });
+  markUnsaved();
+  renderPills();
+  renderInvoices();
+  renderStats();
+  showToast('🔓 ' + month + ' unlocked');
+}
+
+function unlockPHMonth(month) {
+  delete PH_LOCKED_MONTHS[month];
+  PH_INVOICE_DATA_ARR.forEach(r => { if (r.month === month) delete r.locked; });
+  markUnsaved();
+  renderPHPills();
+  renderPHInvoices();
+  showToast('🔓 PH ' + month + ' unlocked');
+}
+
 function snapshotInvoiceRow(r, isPH) {
   if (!r) return;
   try {
@@ -4790,6 +4847,7 @@ function isCoveredByLaterPeriods(r, arr) {
 
 function getDisplayTotal(r) {
   if (isBackdatedLocked(r)) return 0;
+  if (r.locked) return 0;
   if (isCoveredByLaterPeriods(r, INVOICE_DATA_ARR)) return 0;
   const rate = r.rate || 99;
 
@@ -5768,7 +5826,9 @@ function renderPH() {
   if (pillsEl) {
     pillsEl.innerHTML = allMonths.map(m => {
       const isActive = m === phActiveMonth;
-      return `<button class="pill${isActive?' active':''}" onclick="phActiveMonth='${m}';renderPH()">${m}</button>`;
+      const locked = isPHMonthLocked(m);
+      const lock = locked ? ` <span onclick="event.stopPropagation();unlockPHMonth('${m}')" title="Click to unlock PH ${m}" style="cursor:pointer">🔒</span>` : '';
+      return `<button class="pill${isActive?' active':''}" onclick="phActiveMonth='${m}';renderPH()">${m}${lock}</button>`;
     }).join('');
   }
 
@@ -6241,7 +6301,7 @@ function confirmPHAssign() {
     }
   });
   closePHAssignModal();
-  if (count>0) { markUnsaved(); syncNow(); updateNextInvoice(); showToast('\u2713 Assigned '+count+' invoice number'+(count>1?'s':'')); renderPH(); }
+  if (count>0) { markUnsaved(); syncNow(); updateNextInvoice(); lockPHMonth(phActiveMonth); showToast('\u2713 Assigned '+count+' invoice number'+(count>1?'s':'')+' — PH '+phActiveMonth+' locked'); renderPH(); }
 }
 
 // ── PH Copy to Next Month ─────────────────────────────────────────────────────
@@ -7051,6 +7111,7 @@ function getPHEffectiveDates(r) {
 
 function getPHDisplayTotal(r) {
   if (isBackdatedLocked(r)) return 0;
+  if (r.locked) return 0;
   if (isCoveredByLaterPeriods(r, PH_INVOICE_DATA_ARR)) return 0;
   if (r.total > 0) return r.total;
   const rate = r.rate || 99;
