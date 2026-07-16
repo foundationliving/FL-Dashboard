@@ -5264,7 +5264,13 @@ function confirmCopy() {
   let added=0;
   document.querySelectorAll('#copy-patient-list input[type=checkbox]').forEach((cb,i)=>{
     if (cb.checked) {
-      INVOICE_DATA_ARR.push({month:nextMonth,invoice:'',name:eligible[i].name,cin:eligible[i].cin,agreement:'WAITING',firstDay:'',lastDay:'',rate:99,total:0,payment:''});
+      INVOICE_DATA_ARR.push({
+        month: nextMonth, invoice: '', name: eligible[i].name, cin: eligible[i].cin,
+        agreement: 'WAITING', firstDay: '', lastDay: '', rate: eligible[i].rate||99,
+        total: 0, payment: '', note: eligible[i].note||'', movedOut: eligible[i].movedOut||false,
+        priorStart: '', priorEnd: '', priorDays: 0, priorTotal: 0
+        // billingPeriods intentionally omitted — fresh start each month
+      });
       added++;
     }
   });
@@ -6334,7 +6340,16 @@ function confirmPHCopy() {
     const cb = document.getElementById('ph_cp_'+i);
     if (cb && cb.checked) {
       const exists = PH_INVOICE_DATA_ARR.some(x => x.month===nextMonth && x.name===r.name);
-      if (!exists) { PH_INVOICE_DATA_ARR.push({...r, month:nextMonth, invoice:'', payment:'', firstDay:'', lastDay:'', total:0}); count++; }
+      if (!exists) {
+        PH_INVOICE_DATA_ARR.push({
+          month: nextMonth, invoice: '', name: r.name, cin: r.cin,
+          agreement: 'WAITING', firstDay: '', lastDay: '', rate: r.rate||99,
+          total: 0, payment: '', house: r.house||'', note: r.note||'', movedOut: r.movedOut||false,
+          priorStart: '', priorEnd: '', priorDays: 0, priorTotal: 0
+          // billingPeriods, locked intentionally omitted
+        });
+        count++;
+      }
     }
   });
   closePHCopyModal();
