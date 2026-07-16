@@ -2396,8 +2396,10 @@ function monthStats(month) {
 function renderPills() {
   document.getElementById('month-pills').innerHTML = MONTHS.map(m => {
     const locked = isFLMonthLocked(m);
-    const lock = locked ? ` <span onclick="event.stopPropagation();unlockFLMonth('${m}')" title="Click to unlock ${m}" style="cursor:pointer">🔒</span>` : '';
-    return `<button class="pill${m===activeMonth?' active':''}" onclick="selectMonth('${m}')">${m}${lock}</button>`;
+    const badge = locked
+      ? `<span onclick="if(confirm('Unlock ${m}? This will allow agreement changes to affect invoices.'))unlockFLMonth('${m}')" title="Click to unlock ${m}" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔒</span>`
+      : '';
+    return `<span style="position:relative;display:inline-block"><button class="pill${m===activeMonth?' active':''}" onclick="selectMonth('${m}')">${m}</button>${badge}</span>`;
   }).join('');
 }
 function selectMonth(m) {
@@ -2900,6 +2902,7 @@ function confirmAssign() {
   if (count > 0) {
     markUnsaved();
     lockFLMonth(activeMonth);
+    syncNow();
     showToast(`✓ Assigned ${count} invoice number${count > 1 ? 's' : ''} — ${activeMonth} locked`);
     updateNextInvoice();
     renderStats();
@@ -4434,8 +4437,7 @@ function lockPHMonth(month) {
     }
   });
   markUnsaved();
-  renderPHPills();
-  renderPHInvoices();
+  renderPH();
 }
 
 function unlockFLMonth(month) {
@@ -4452,8 +4454,7 @@ function unlockPHMonth(month) {
   delete PH_LOCKED_MONTHS[month];
   PH_INVOICE_DATA_ARR.forEach(r => { if (r.month === month) delete r.locked; });
   markUnsaved();
-  renderPHPills();
-  renderPHInvoices();
+  renderPH();
   showToast('🔓 PH ' + month + ' unlocked');
 }
 
@@ -4848,7 +4849,7 @@ function isCoveredByLaterPeriods(r, arr) {
 function getDisplayTotal(r) {
   if (isBackdatedLocked(r)) return 0;
   if (r.locked) return 0;
-  if (isCoveredByLaterPeriods(r, INVOICE_DATA_ARR)) return 0;
+  if (!r.invoice && isCoveredByLaterPeriods(r, INVOICE_DATA_ARR)) return 0;
   const rate = r.rate || 99;
 
   // MANUAL (Quick Add) entries: always recalculate from their own dates — never pull from tracker
@@ -5152,6 +5153,7 @@ function savePrior() {
   r.total = 0; // force getDisplayTotal() to recalculate from billingPeriods
   closePriorModal();
   markUnsaved();
+  syncNow();
   showToast('Billing periods saved');
   renderStats();
   renderInvoices();
@@ -5833,8 +5835,10 @@ function renderPH() {
     pillsEl.innerHTML = allMonths.map(m => {
       const isActive = m === phActiveMonth;
       const locked = isPHMonthLocked(m);
-      const lock = locked ? ` <span onclick="event.stopPropagation();unlockPHMonth('${m}')" title="Click to unlock PH ${m}" style="cursor:pointer">🔒</span>` : '';
-      return `<button class="pill${isActive?' active':''}" onclick="phActiveMonth='${m}';renderPH()">${m}${lock}</button>`;
+      const badge = locked
+        ? `<span onclick="if(confirm('Unlock PH ${m}? This will allow agreement changes to affect invoices.'))unlockPHMonth('${m}')" title="Click to unlock PH ${m}" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔒</span>`
+        : '';
+      return `<span style="position:relative;display:inline-block"><button class="pill${isActive?' active':''}" onclick="phActiveMonth='${m}';renderPH()">${m}</button>${badge}</span>`;
     }).join('');
   }
 
@@ -7127,7 +7131,7 @@ function getPHEffectiveDates(r) {
 function getPHDisplayTotal(r) {
   if (isBackdatedLocked(r)) return 0;
   if (r.locked) return 0;
-  if (isCoveredByLaterPeriods(r, PH_INVOICE_DATA_ARR)) return 0;
+  if (!r.invoice && isCoveredByLaterPeriods(r, PH_INVOICE_DATA_ARR)) return 0;
   if (r.total > 0) return r.total;
   const rate = r.rate || 99;
   const { firstDay, lastDay } = getPHEffectiveDates(r);
