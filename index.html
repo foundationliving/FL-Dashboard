@@ -672,7 +672,6 @@ if (authState === 'owner' || authState === '1') {
           <button class="btn btn-navy" onclick="openAssignModal()">🔢 Assign invoice #s</button>
           <button class="btn btn-navy" onclick="copyToNextMonth()">📋 Next Month</button>
           <button class="btn btn-gold" onclick="printAllInvoices()">🖨 Print Invoices</button>
-          <button class="btn btn-gray" onclick="exportFLInvoiceCSV()" title="Export June invoice list to CSV">⬇ Export CSV</button>
         </div>
       </div>
       <div class="section-body">
@@ -851,7 +850,6 @@ if (authState === 'owner' || authState === '1') {
             <button class="btn btn-navy" onclick="openPHAssignModal()">🔢 Assign invoice #s</button>
             <button class="btn btn-navy" onclick="openPHCopyModal()">📋 Next Month</button>
             <button class="btn btn-gold" onclick="openPHPrintAllModal()">🖨 Print Invoices</button>
-            <button class="btn btn-gray" onclick="exportPHInvoiceCSV()" title="Export PH invoice list to CSV">⬇ Export CSV</button>
           </div>
         </div>
 
@@ -1008,19 +1006,15 @@ if (authState === 'owner' || authState === '1') {
 
 <!-- PH Assign Modal -->
 <div id="ph-assign-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:16px;padding:24px;width:520px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:480px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
     <div style="font-size:15px;font-weight:600;margin-bottom:4px">Assign Invoice Numbers</div>
     <div style="font-size:12px;color:#6b7589;margin-bottom:12px">Phoenix Haven — <span id="ph-assign-month"></span> · Starting from <strong id="ph-assign-start"></strong></div>
     <div style="display:grid;grid-template-columns:1fr auto;font-size:11px;font-weight:600;color:#7a8fa8;text-transform:uppercase;padding:6px 12px;background:#f0f4fa;border-radius:6px;margin-bottom:4px"><span>Patient</span><span>Include</span></div>
     <div id="ph-assign-list" style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px"></div>
-    <div style="display:flex;gap:8px;margin-top:16px;justify-content:space-between;align-items:center">
-      <button id="ph-assign-select-all-btn" onclick="toggleSelectAllPHAssign()" style="padding:7px 14px;font-size:12px;border-radius:8px;cursor:pointer;font-family:inherit;background:#f0f4fa;color:#1c3455;border:1px solid #dde2ea">Deselect all</button>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-gray" onclick="closePHAssignModal()">Cancel</button>
-        <button class="btn btn-green" onclick="confirmPHAssign()">Assign</button>
-      </div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-gray" onclick="closePHAssignModal()">Cancel</button>
+      <button class="btn btn-green" onclick="confirmPHAssign()">Assign</button>
     </div>
-    <div id="ph-assign-modal-total" style="margin-top:10px;padding:9px 14px;background:#f0f7ed;border:1px solid #b6dba8;border-radius:8px;font-size:12px;font-weight:600;color:#1e6b3d;text-align:center"></div>
   </div>
 </div>
 
@@ -1043,12 +1037,9 @@ if (authState === 'owner' || authState === '1') {
     <div style="font-size:15px;font-weight:600;margin-bottom:4px">Print All Invoices</div>
     <div style="font-size:12px;color:#6b7589;margin-bottom:12px">Phoenix Haven — <span id="ph-print-month"></span></div>
     <div id="ph-print-list" style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px"></div>
-    <div style="display:flex;gap:8px;margin-top:16px;justify-content:space-between;align-items:center">
-      <button id="ph-print-select-all-btn" onclick="toggleSelectAllPHPrint()" style="padding:7px 14px;font-size:12px;border-radius:8px;cursor:pointer;font-family:inherit;background:#f0f4fa;color:#1c3455;border:1px solid #dde2ea">Deselect all</button>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-gray" onclick="closePHPrintAllModal()">Cancel</button>
-        <button class="btn btn-green" onclick="confirmPHPrintAll()">Print Selected</button>
-      </div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-gray" onclick="closePHPrintAllModal()">Cancel</button>
+      <button class="btn btn-green" onclick="confirmPHPrintAll()">Print Selected</button>
     </div>
   </div>
 </div>
@@ -1169,7 +1160,7 @@ if (authState === 'owner' || authState === '1') {
           <div class="table-wrap">
             <table>
               <thead><tr style="background:#f0f4fa">
-                <th>Resident</th><th>House / bed</th><th>Move-in</th><th>Rent due</th><th>Paid</th><th>Balance</th><th>Status</th><th></th>
+                <th>Resident</th><th>House / bed</th><th>Move-in</th><th>Rent due</th><th>Paid</th><th>Balance</th><th>Status</th><th>Notes</th><th></th>
               </tr></thead>
               <tbody id="pp-sp-tbody"></tbody>
             </table>
@@ -1737,8 +1728,6 @@ let currentAgTab = 'active';
 const _months=['January','February','March','April','May','June','July','August','September','October','November','December'];
 let activeMonth = _months[new Date().getMonth()];
 let phActiveMonth = _months[new Date().getMonth()];
-let FL_LOCKED_MONTHS = {}; // { 'June': true, 'May': true }
-let PH_LOCKED_MONTHS = {};
 let phInnerTab = 'agreements';
 let BAKED_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKuF93LjSLOvS97GjKAoUCsr4fA8JYfP0FLSiUFFv_BHRwtcIMgh8BhmFJlGPZjK6kRQ/exec';
 let _copyEligible = [];
@@ -1955,8 +1944,6 @@ function loadFromSheet(onDone) {
       if (data.ph_eligibility && data.ph_eligibility.length>0) PH_ELIGIBILITY_DATA = data.ph_eligibility;
       if (data.ph_tracker && data.ph_tracker.length>0) PH_TRACKER = data.ph_tracker;
       if (data.ph_payments) PH_PAYMENTS = data.ph_payments;
-      if (data.fl_locked_months) FL_LOCKED_MONTHS = data.fl_locked_months;
-      if (data.ph_locked_months) PH_LOCKED_MONTHS = data.ph_locked_months;
       if (data.pp_beds && data.pp_beds.length>0) PP_BEDS = data.pp_beds;
       if (data.pp_selfpay && data.pp_selfpay.length>0) PP_SELFPAY = data.pp_selfpay;
       if (data.pp_sr_invoices && data.pp_sr_invoices.length>0) PP_SR_INVOICES = data.pp_sr_invoices;
@@ -2004,7 +1991,7 @@ function syncNow() {
   fetch(scriptURL, {
     method:'POST', mode:'no-cors',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS, pp_facilities:PP_FACILITIES, fl_locked_months:FL_LOCKED_MONTHS, ph_locked_months:PH_LOCKED_MONTHS})
+    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS, pp_facilities:PP_FACILITIES})
   })
   .then(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; markSaved(new Date().toISOString()); showToast('Saved to Google Sheets ✓'); })
   .catch(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; showToast('Sync failed','error'); });
@@ -2394,13 +2381,9 @@ function monthStats(month) {
   return { total: allTotal, count: invoiced.length, billed: billed.length, billedTotal, diff: allTotal - billedTotal };
 }
 function renderPills() {
-  document.getElementById('month-pills').innerHTML = MONTHS.map(m => {
-    const locked = isFLMonthLocked(m);
-    const badge = locked
-      ? `<span onclick="if(confirm('Unlock ${m}? This will allow agreement changes to affect invoices.'))unlockFLMonth('${m}')" title="Click to unlock ${m}" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔒</span>`
-      : '';
-    return `<span style="position:relative;display:inline-block"><button class="pill${m===activeMonth?' active':''}" onclick="selectMonth('${m}')">${m}</button>${badge}</span>`;
-  }).join('');
+  document.getElementById('month-pills').innerHTML = MONTHS.map(m=>
+    `<button class="pill${m===activeMonth?' active':''}" onclick="selectMonth('${m}')">${m}</button>`
+  ).join('');
 }
 function selectMonth(m) {
   activeMonth=m; renderPills(); renderStats(); renderInvoices();
@@ -2893,7 +2876,6 @@ function confirmAssign() {
       r.invoice = 'FL-' + next;
       // Auto-set to invoiced (billed) status
       if (!r.payment || !r.payment.includes('✓')) { r.payment = ''; }
-      snapshotInvoiceRow(r, false);
       next++;
       count++;
     }
@@ -2901,9 +2883,7 @@ function confirmAssign() {
   closeAssignModal();
   if (count > 0) {
     markUnsaved();
-    lockFLMonth(activeMonth);
-    syncNow();
-    showToast(`✓ Assigned ${count} invoice number${count > 1 ? 's' : ''} — ${activeMonth} locked`);
+    showToast(`✓ Assigned ${count} invoice number${count > 1 ? 's' : ''}`);
     updateNextInvoice();
     renderStats();
     renderInvoices();
@@ -3993,11 +3973,9 @@ function printReferral() {
   window.print();
 }
 
-// After printing: open next PH invoice if queue is pending
+// Restore page after printing — stay on referral tab
 window.addEventListener('afterprint', function() {
-  if (_phPrintQueue && _phPrintQueue.length > 0) {
-    setTimeout(_openNextPHInvoice, 150);
-  }
+  switchAppTab('referral');
 });
 
 function emailReferral() {
@@ -4408,72 +4386,6 @@ function applyCINSuggestion(arrType, cin, event) {
 }
 
 
-// Snapshot calculated dates onto a row when an invoice number is assigned,
-// so later agreement changes never alter already-invoiced months.
-function isFLMonthLocked(month) { return !!(FL_LOCKED_MONTHS && FL_LOCKED_MONTHS[month]); }
-function isPHMonthLocked(month) { return !!(PH_LOCKED_MONTHS && PH_LOCKED_MONTHS[month]); }
-
-function lockFLMonth(month) {
-  FL_LOCKED_MONTHS[month] = true;
-  // Freeze all un-invoiced rows for this month
-  INVOICE_DATA_ARR.forEach(r => {
-    if (r.month !== month) return;
-    if (!r.invoice || !/^FL-\d+$/.test(r.invoice)) {
-      r.locked = true; // mark as locked — won't show amount
-    }
-  });
-  markUnsaved();
-  renderPills();
-  renderInvoices();
-  renderStats();
-}
-
-function lockPHMonth(month) {
-  PH_LOCKED_MONTHS[month] = true;
-  PH_INVOICE_DATA_ARR.forEach(r => {
-    if (r.month !== month) return;
-    if (!r.invoice || !/^FL-\d+(PH)?$/.test(r.invoice)) {
-      r.locked = true;
-    }
-  });
-  markUnsaved();
-  renderPH();
-}
-
-function unlockFLMonth(month) {
-  delete FL_LOCKED_MONTHS[month];
-  INVOICE_DATA_ARR.forEach(r => { if (r.month === month) delete r.locked; });
-  markUnsaved();
-  renderPills();
-  renderInvoices();
-  renderStats();
-  showToast('🔓 ' + month + ' unlocked');
-}
-
-function unlockPHMonth(month) {
-  delete PH_LOCKED_MONTHS[month];
-  PH_INVOICE_DATA_ARR.forEach(r => { if (r.month === month) delete r.locked; });
-  markUnsaved();
-  renderPH();
-  showToast('🔓 PH ' + month + ' unlocked');
-}
-
-function snapshotInvoiceRow(r, isPH) {
-  if (!r) return;
-  try {
-    if (!r.firstDay) {
-      const f = isPH ? (getPHEffectiveDates(r).firstDay || getPHAutoFirstDay(r.name, r.cin, r.month))
-                     : getAutoFirstDay(r.name, r.cin, r.month);
-      if (f) r.firstDay = f;
-    }
-    if (!r.lastDay) {
-      const l = isPH ? (getLastDayFromPH(r.name, r.cin, r.month) || getPHEffectiveDates(r).lastDay)
-                     : (getLastDayFromAgreement(r.name, r.cin, r.month) || getAutoLastDay(r.name, r.cin, r.month));
-      if (l) r.lastDay = l;
-    }
-  } catch(e) {}
-}
-
 function saveInvoiceField(idx, val) {
   const clean = val.trim();
   INVOICE_DATA_ARR[idx].invoice = clean;
@@ -4484,7 +4396,6 @@ function saveInvoiceField(idx, val) {
       INVOICE_DATA_ARR[idx].payment = '';
       INVOICE_DATA_ARR[idx].agreement = INVOICE_DATA_ARR[idx].agreement === 'WAITING' ? 'ACTIVE' : INVOICE_DATA_ARR[idx].agreement;
     }
-    snapshotInvoiceRow(INVOICE_DATA_ARR[idx], false);
   } else if (clean === '') {
     // Invoice number cleared — revert to waiting
     if (!INVOICE_DATA_ARR[idx].payment || !INVOICE_DATA_ARR[idx].payment.includes('\u2713')) {
@@ -4848,8 +4759,7 @@ function isCoveredByLaterPeriods(r, arr) {
 
 function getDisplayTotal(r) {
   if (isBackdatedLocked(r)) return 0;
-  if (r.locked) return 0;
-  if (!r.invoice && isCoveredByLaterPeriods(r, INVOICE_DATA_ARR)) return 0;
+  if (isCoveredByLaterPeriods(r, INVOICE_DATA_ARR)) return 0;
   const rate = r.rate || 99;
 
   // MANUAL (Quick Add) entries: always recalculate from their own dates — never pull from tracker
@@ -5153,7 +5063,6 @@ function savePrior() {
   r.total = 0; // force getDisplayTotal() to recalculate from billingPeriods
   closePriorModal();
   markUnsaved();
-  syncNow();
   showToast('Billing periods saved');
   renderStats();
   renderInvoices();
@@ -5266,13 +5175,7 @@ function confirmCopy() {
   let added=0;
   document.querySelectorAll('#copy-patient-list input[type=checkbox]').forEach((cb,i)=>{
     if (cb.checked) {
-      INVOICE_DATA_ARR.push({
-        month: nextMonth, invoice: '', name: eligible[i].name, cin: eligible[i].cin,
-        agreement: 'WAITING', firstDay: '', lastDay: '', rate: eligible[i].rate||99,
-        total: 0, payment: '', note: eligible[i].note||'', movedOut: eligible[i].movedOut||false,
-        priorStart: '', priorEnd: '', priorDays: 0, priorTotal: 0
-        // billingPeriods intentionally omitted — fresh start each month
-      });
+      INVOICE_DATA_ARR.push({month:nextMonth,invoice:'',name:eligible[i].name,cin:eligible[i].cin,agreement:'WAITING',firstDay:'',lastDay:'',rate:99,total:0,payment:''});
       added++;
     }
   });
@@ -5412,10 +5315,6 @@ function closeInvoice(){
   document.getElementById('invoice-overlay').style.display='none';
   const badge = document.getElementById('printed-badge');
   if (badge) badge.parentNode.removeChild(badge);
-  // Open next PH invoice if queue is pending
-  if (_phPrintQueue && _phPrintQueue.length > 0) {
-    setTimeout(_openNextPHInvoice, 150);
-  }
 }
 
 // ── Global error trap (debug) ─────────────────────────────────────────────────
@@ -5834,11 +5733,7 @@ function renderPH() {
   if (pillsEl) {
     pillsEl.innerHTML = allMonths.map(m => {
       const isActive = m === phActiveMonth;
-      const locked = isPHMonthLocked(m);
-      const badge = locked
-        ? `<span onclick="if(confirm('Unlock PH ${m}? This will allow agreement changes to affect invoices.'))unlockPHMonth('${m}')" title="Click to unlock PH ${m}" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔒</span>`
-        : '';
-      return `<span style="position:relative;display:inline-block"><button class="pill${isActive?' active':''}" onclick="phActiveMonth='${m}';renderPH()">${m}</button>${badge}</span>`;
+      return `<button class="pill${isActive?' active':''}" onclick="phActiveMonth='${m}';renderPH()">${m}</button>`;
     }).join('');
   }
 
@@ -6235,24 +6130,22 @@ function openPHAssignModal() {
   if (!eligible.length) { showToast('All patients already have invoice numbers!'); return; }
   const nextNum = getNextInvoiceNum();
   document.getElementById('ph-assign-month').textContent = phActiveMonth;
-  document.getElementById('ph-assign-start').textContent = 'FL-' + nextNum + 'PH';
+  document.getElementById('ph-assign-start').textContent = 'FL-' + nextNum;
   const list = document.getElementById('ph-assign-list');
   list._eligible = eligible;
   list.style.display = 'grid';
   list.style.gridTemplateColumns = '1fr 80px 50px';
   list.innerHTML = eligible.map((r,i) => {
-    const agS = getPHAgreementStatus(r.name, r.cin, r.month);
+    const agS = getPHAgreementStatus(r.name, r.cin);
     const dotColor = agS==='active'?'#22c55e':agS==='expiring'?'#eab308':'#ef4444';
     const dotGlow = agS==='active'?'rgba(34,197,94,0.6)':agS==='expiring'?'rgba(234,179,8,0.6)':'rgba(239,68,68,0.5)';
-    const dotTitle = agS==='active'?'Agreement active':agS==='expiring'?'Expires this month':'No agreement';
-    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
-    const amt = (agS==='active'||agS==='expiring'||hasPeriods) ? getPHDisplayTotal(r) : 0;
+    const amt = (agS==='active'||agS==='expiring') ? getPHDisplayTotal(r) : 0;
     const amtStr = amt > 0 ? '$' + amt.toLocaleString() : '—';
     const amtColor = amt > 0 ? '#1e6b3d' : '#94a3b8';
     return `
     <div style="padding:9px 12px;border-bottom:0.5px solid #f0f2f5;font-size:13px;font-weight:500;color:#0f2035;display:flex;flex-direction:column;justify-content:center">
       <div style="display:flex;align-items:center;gap:6px">
-        <span title="${dotTitle}" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${dotColor};display:inline-block;box-shadow:0 0 4px ${dotGlow}"></span>
+        <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${dotColor};display:inline-block;box-shadow:0 0 4px ${dotGlow}"></span>
         ${r.name}
       </div>
       <div style="font-size:11px;color:#6b7589;font-weight:400;margin-left:14px">${r.cin||'—'}</div>
@@ -6264,39 +6157,9 @@ function openPHAssignModal() {
       <input type="checkbox" id="ph_ai_${i}" checked style="width:15px;height:15px;accent-color:#1c3455;cursor:pointer">
     </div>`;
   }).join('');
-  document.querySelectorAll('#ph-assign-list input[type=checkbox]').forEach(cb => {
-    cb.addEventListener('change', updatePHAssignTotal);
-  });
   document.getElementById('ph-assign-modal').style.display = 'flex';
-  updatePHAssignTotal();
 }
 function closePHAssignModal() { document.getElementById('ph-assign-modal').style.display='none'; }
-
-function updatePHAssignTotal() {
-  const list = document.getElementById('ph-assign-list');
-  const eligible = list._eligible || [];
-  const cbs = document.querySelectorAll('#ph-assign-list input[type=checkbox]');
-  let total = 0, count = 0;
-  cbs.forEach((cb, i) => {
-    if (cb.checked && eligible[i]) {
-      const r = eligible[i];
-      const agS = getPHAgreementStatus(r.name, r.cin, r.month);
-      const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
-      const amt = (agS==='active'||agS==='expiring'||hasPeriods) ? getPHDisplayTotal(r) : 0;
-      total += amt; count++;
-    }
-  });
-  const el = document.getElementById('ph-assign-modal-total');
-  if (el) el.textContent = count > 0 ? `Assigning ${count} invoice${count!==1?'s':''} — Total: $${total.toLocaleString()}` : 'No patients selected';
-}
-
-function toggleSelectAllPHAssign() {
-  const cbs = document.querySelectorAll('#ph-assign-list input[type=checkbox]');
-  const allChecked = Array.from(cbs).every(c => c.checked);
-  cbs.forEach(c => c.checked = !allChecked);
-  document.getElementById('ph-assign-select-all-btn').textContent = allChecked ? 'Select all' : 'Deselect all';
-  updatePHAssignTotal();
-}
 function confirmPHAssign() {
   const list = document.getElementById('ph-assign-list');
   const eligible = list._eligible;
@@ -6306,12 +6169,11 @@ function confirmPHAssign() {
     if (cb && cb.checked) {
       r.invoice = 'FL-' + next + 'PH';
       if (!r.payment || !r.payment.includes('\u2713')) { r.payment = ''; }
-      snapshotInvoiceRow(r, true);
       next++; count++;
     }
   });
   closePHAssignModal();
-  if (count>0) { markUnsaved(); syncNow(); updateNextInvoice(); lockPHMonth(phActiveMonth); showToast('\u2713 Assigned '+count+' invoice number'+(count>1?'s':'')+' — PH '+phActiveMonth+' locked'); renderPH(); }
+  if (count>0) { markUnsaved(); autoSyncPHEligibility(); showToast('\u2713 Assigned '+count+' invoice number'+(count>1?'s':'')); renderPH(); }
 }
 
 // ── PH Copy to Next Month ─────────────────────────────────────────────────────
@@ -6325,14 +6187,10 @@ function openPHCopyModal() {
   const list = document.getElementById('ph-copy-list');
   list._rows = rows; list._nextMonth = nextMonth;
   list.innerHTML = rows.map((r,i) => `
-    <label class="copy-patient-item" for="ph_cp_${i}">
-      <input type="checkbox" id="ph_cp_${i}" ${r.movedOut?'':'checked'} style="width:15px;height:15px;accent-color:#1c3455;cursor:pointer;flex-shrink:0">
-      <div>
-        <div style="font-size:13px;font-weight:500;color:var(--text)">${r.name}${r.movedOut?' <span style="font-size:10px;color:#94a3b8;font-weight:400">(moved out)</span>':''}</div>
-        ${r.note?`<div style="font-size:10px;color:#a82828;line-height:1.3;margin-top:1px">${r.note}</div>`:''}
-        <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${r.cin||'—'}</div>
-      </div>
-    </label>`).join('');
+    <div style="padding:9px 12px;border-bottom:0.5px solid #f0f2f5;font-size:13px;font-weight:500;color:#0f2035;display:flex;align-items:center;justify-content:space-between">
+      <span>${r.name}</span>
+      <input type="checkbox" id="ph_cp_${i}" ${r.movedOut?'':'checked'} style="width:15px;height:15px;accent-color:#1c3455;cursor:pointer">
+    </div>`).join('');
   document.getElementById('ph-copy-modal').style.display='flex';
 }
 function closePHCopyModal() { document.getElementById('ph-copy-modal').style.display='none'; }
@@ -6344,16 +6202,7 @@ function confirmPHCopy() {
     const cb = document.getElementById('ph_cp_'+i);
     if (cb && cb.checked) {
       const exists = PH_INVOICE_DATA_ARR.some(x => x.month===nextMonth && x.name===r.name);
-      if (!exists) {
-        PH_INVOICE_DATA_ARR.push({
-          month: nextMonth, invoice: '', name: r.name, cin: r.cin,
-          agreement: 'WAITING', firstDay: '', lastDay: '', rate: r.rate||99,
-          total: 0, payment: '', house: r.house||'', note: r.note||'', movedOut: r.movedOut||false,
-          priorStart: '', priorEnd: '', priorDays: 0, priorTotal: 0
-          // billingPeriods, locked intentionally omitted
-        });
-        count++;
-      }
+      if (!exists) { PH_INVOICE_DATA_ARR.push({...r, month:nextMonth, invoice:'', payment:'', firstDay:'', lastDay:'', total:0}); count++; }
     }
   });
   closePHCopyModal();
@@ -6375,35 +6224,15 @@ function openPHPrintAllModal() {
   document.getElementById('ph-print-all-modal').style.display='flex';
 }
 function closePHPrintAllModal() { document.getElementById('ph-print-all-modal').style.display='none'; }
-function toggleSelectAllPHPrint() {
-  const cbs = document.querySelectorAll('#ph-print-list input[type=checkbox]');
-  const allChecked = Array.from(cbs).every(c => c.checked);
-  cbs.forEach(c => c.checked = !allChecked);
-  document.getElementById('ph-print-select-all-btn').textContent = allChecked ? 'Select all' : 'Deselect all';
-}
-let _phPrintQueue = [];
-
 function confirmPHPrintAll() {
   const list = document.getElementById('ph-print-list');
   const rows = list._rows;
-  _phPrintQueue = [];
+  let printed = 0;
   rows.forEach((r,i) => {
     const cb = document.getElementById('ph_pr_'+i);
-    if (cb && cb.checked) {
-      const idx = PH_INVOICE_DATA_ARR.indexOf(r);
-      if (idx !== -1) _phPrintQueue.push(idx);
-    }
+    if (cb && cb.checked) { const idx = PH_INVOICE_DATA_ARR.indexOf(r); openPHInvoice(idx); printed++; }
   });
   closePHPrintAllModal();
-  if (_phPrintQueue.length === 0) { showToast('No patients selected'); return; }
-  showToast('\u2713 Opening ' + _phPrintQueue.length + ' invoice' + (_phPrintQueue.length > 1 ? 's — close each to open the next' : ''));
-  _openNextPHInvoice();
-}
-
-function _openNextPHInvoice() {
-  if (!_phPrintQueue || _phPrintQueue.length === 0) return;
-  const idx = _phPrintQueue.shift();
-  openPHInvoice(idx);
 }
 
 // openPHInvoice moved to pipeline section below
@@ -7130,8 +6959,7 @@ function getPHEffectiveDates(r) {
 
 function getPHDisplayTotal(r) {
   if (isBackdatedLocked(r)) return 0;
-  if (r.locked) return 0;
-  if (!r.invoice && isCoveredByLaterPeriods(r, PH_INVOICE_DATA_ARR)) return 0;
+  if (isCoveredByLaterPeriods(r, PH_INVOICE_DATA_ARR)) return 0;
   if (r.total > 0) return r.total;
   const rate = r.rate || 99;
   const { firstDay, lastDay } = getPHEffectiveDates(r);
@@ -7239,59 +7067,6 @@ function openPHInvoice(idx) {
 
 // ── Quick Add Invoice-Only Patient ───────────────────────────────────────────
 // Adds a patient directly to the invoice tab without touching the agreement tracker
-function buildPHInvoiceHTML(idx) {
-  try {
-    const r = PH_INVOICE_DATA_ARR[idx];
-    if (!r) return null;
-    openPHInvoice(idx);
-    const html = document.getElementById('invoice-body').innerHTML;
-    document.getElementById('invoice-overlay').setAttribute('style', 'display:none');
-    return '<div style="font-family:\'Barlow\',sans-serif;padding:40px;max-width:800px;margin:0 auto">' + html + '</div>';
-  } catch(e) { return null; }
-}
-function exportFLInvoiceCSV() {
-  const rows = INVOICE_DATA_ARR.filter(r => r.month === activeMonth && r.name);
-  if (!rows.length) { showToast('No invoices for ' + activeMonth, 'error'); return; }
-  const headers = ['Invoice #','Patient Name','CIN','First Day','Last Day','Amount','Status'];
-  const lines = [headers.join(',')];
-  rows.forEach(r => {
-    const agS = getAgreementStatus(r.name, r.cin, r.month);
-    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
-    const amt = (agS==='active'||agS==='expiring'||hasPeriods) ? getDisplayTotal(r) : 0;
-    const firstDay = r.firstDay || getAutoFirstDay(r.name, r.cin, r.month) || '';
-    const lastDay = r.lastDay || getLastDayFromAgreement(r.name, r.cin, r.month) || getAutoLastDay(r.name, r.cin, r.month) || '';
-    lines.push([r.invoice||'','"'+(r.name||'').replace(/"/g,'""')+'"',r.cin||'',firstDay,lastDay,amt>0?amt:'',getInvStatus(r)].join(','));
-  });
-  const total = rows.reduce((s,r) => { const agS=getAgreementStatus(r.name,r.cin,r.month); const hp=(r.billingPeriods&&r.billingPeriods.length>0)||r.priorStart; return s+((agS==='active'||agS==='expiring'||hp)?getDisplayTotal(r):0); },0);
-  lines.push(',,,,Total,'+total+',');
-  const blob = new Blob([lines.join('\n')],{type:'text/csv'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'FL_Invoices_'+activeMonth+'_2026.csv'; a.click();
-  showToast('✓ Exported FL '+activeMonth+' invoices');
-}
-
-function exportPHInvoiceCSV() {
-  const rows = PH_INVOICE_DATA_ARR.filter(r => r.month === phActiveMonth && r.name);
-  if (!rows.length) { showToast('No PH invoices for ' + phActiveMonth, 'error'); return; }
-  const headers = ['Invoice #','Patient Name','CIN','First Day','Last Day','Amount','Status'];
-  const lines = [headers.join(',')];
-  rows.forEach(r => {
-    const agS = getPHAgreementStatus(r.name, r.cin, r.month);
-    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
-    const amt = (agS==='active'||agS==='expiring'||hasPeriods) ? getPHDisplayTotal(r) : 0;
-    const eff = getPHEffectiveDates(r);
-    const firstDay = r.firstDay || eff.firstDay || '';
-    const lastDay = r.lastDay || getLastDayFromPH(r.name,r.cin,r.month) || eff.lastDay || '';
-    lines.push([r.invoice||'','"'+(r.name||'').replace(/"/g,'""')+'"',r.cin||'',firstDay,lastDay,amt>0?amt:'',r.payment||'Billed'].join(','));
-  });
-  const total = rows.reduce((s,r) => { const agS=getPHAgreementStatus(r.name,r.cin,r.month); const hp=(r.billingPeriods&&r.billingPeriods.length>0)||r.priorStart; return s+((agS==='active'||agS==='expiring'||hp)?getPHDisplayTotal(r):0); },0);
-  lines.push(',,,,Total,'+total+',');
-  const blob = new Blob([lines.join('\n')],{type:'text/csv'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'PH_Invoices_'+phActiveMonth+'_2026.csv'; a.click();
-  showToast('✓ Exported PH '+phActiveMonth+' invoices');
-}
-
 function toggleQuickAddForm() {
   const form = document.getElementById('quick-add-form');
   if (!form) return;
@@ -7451,11 +7226,10 @@ function togglePHMovedOut(idx, cb) {
 function savePHInvoiceField(idx, val) {
   const clean = val.trim();
   PH_INVOICE_DATA_ARR[idx].invoice = clean;
-  if (/^FL-\d+(PH)?$/.test(clean)) {
+  if (/^FL-\d+$/.test(clean)) {
     if (!PH_INVOICE_DATA_ARR[idx].payment || !PH_INVOICE_DATA_ARR[idx].payment.includes('\u2713')) {
       PH_INVOICE_DATA_ARR[idx].payment = '';
     }
-    snapshotInvoiceRow(PH_INVOICE_DATA_ARR[idx], true);
   } else if (clean === '') {
     if (!PH_INVOICE_DATA_ARR[idx].payment || !PH_INVOICE_DATA_ARR[idx].payment.includes('\u2713')) {
       PH_INVOICE_DATA_ARR[idx].payment = '';
@@ -8475,6 +8249,7 @@ function ppSPRender(){
       '<td><input type="text" value="'+paid+'" style="width:80px;padding:4px 8px;border:1px solid #dde2ea;border-radius:5px;font-size:12px;font-family:DM Mono,monospace" onchange="ppSPUpdatePaid('+ri+',this.value)"></td>'+
       '<td style="font-family:DM Mono,monospace;color:'+(balance>0?'#a82828':'#1e6b3d')+'">'+ppSRMoney(balance)+'</td>'+
       '<td><span class="badge '+st.cls+'">'+st.label+'</span></td>'+
+      '<td style="font-size:12px;color:#a82828;min-width:120px" '+ce2+' data-field="notes">'+(r.notes||'')+'</td>'+
       '<td><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1" onclick="ppSPDel('+ri+')">&#x2715;</button></td>'+
       '</tr>';
   }).join('');
@@ -8700,7 +8475,7 @@ function ppConfirmRollover(){
           movein:r.movein||'',
           end:r.end||'',
           rate:r.rate||'',
-          notes:'',
+          notes:r.notes||'',
           windowMonths:r.windowMonths||4,
           month:ppRolloverTargetMonth,
           invoice:newInvNum,
