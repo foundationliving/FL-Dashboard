@@ -7786,6 +7786,7 @@ function ppCheckExpiry(){
   var urgent=[],warn=[];
   PP_BEDS.forEach(function(b){
     if(!b.end||!b.name) return;
+    if(b.monthToMonth) return; // skip month-to-month patients
     var dl=ppDaysLeft(b.end);
     if(dl===null) return;
     if(dl<=14) urgent.push(b);
@@ -8072,6 +8073,8 @@ function ppSRRender(){
         '<td style="font-family:DM Mono,monospace;font-size:12px;font-weight:600" '+ce+' data-field="invoice">'+(r.invoice||'')+'</td>'+
         '<td style="font-weight:500;color:#1a202c">'+
           '<div '+ce+' data-field="name">'+(r.name||'')+'</div>'+
+          '<div contenteditable="true" onblur="ppSRSaveNote('+i+',this.textContent)" style="font-size:10px;color:#a82828;outline:none;min-width:20px;cursor:text;margin-top:1px;line-height:1.2" title="Click to add note">'+(r.note||'')+'</div>'+
+          '<label class="mtm-label" style="font-size:10px;color:#718096;cursor:pointer;display:inline-flex;align-items:center;gap:3px;margin-top:2px;opacity:'+(r.monthToMonth?'1':'0')+';transition:opacity 0.15s" onmouseover="this.style.opacity=1" onmouseout="if(!this.querySelector(\'input\').checked)this.style.opacity=0"><input type="checkbox" '+(r.monthToMonth?'checked':'')+' onchange="ppSRToggleMonthToMonth('+i+',this.checked);this.closest(\'label\').style.opacity=this.checked?1:0" style="width:11px;height:11px;cursor:pointer"> M-T-M</label>'+
           (r.movedOut ? '<div onclick="ppSRUndoMoveOut('+i+')" title="Click to undo move out" style="font-size:10px;color:#e53e3e;font-weight:600;margin-top:2px;cursor:pointer">📦 Moved out'+(r.moveOutDate?' <span style="font-weight:400">'+r.moveOutDate+'</span>':'')+' ↩</div>' : '')+
         '</td>'+
         '<td style="font-size:12px;color:#185FA5;font-weight:500" '+ce+' data-field="facility">'+(r.facility||'')+'</td>'+
@@ -8144,6 +8147,14 @@ function ppSRMoveOut(i){
   markUnsaved();
   ppSRRender();
   showToast('✓ '+name+' marked as moved out '+moveOutDate);
+}
+
+function ppSRToggleMonthToMonth(i, val) {
+  if (PP_BEDS[i]) { PP_BEDS[i].monthToMonth = val; markUnsaved(); ppCheckExpiry(); }
+}
+
+function ppSRSaveNote(i, val) {
+  if (PP_BEDS[i]) { PP_BEDS[i].note = val.trim(); markUnsaved(); }
 }
 
 function ppSRTogglePaid(i){
