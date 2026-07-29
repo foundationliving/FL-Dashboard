@@ -847,11 +847,9 @@ if (authState === 'owner' || authState === '1') {
           </div>
           <div id="ph-invoice-controls" style="display:none;gap:8px;flex-wrap:wrap">
             <button class="btn btn-green" onclick="togglePHAddForm()">+ Add Patient</button>
-            <button class="btn btn-green" onclick="togglePHQuickAddForm()" style="background:#5a9e3a;border-color:#5a9e3a">⚡ Quick Add Invoice</button>
             <button class="btn btn-navy" onclick="openPHAssignModal()">🔢 Assign invoice #s</button>
             <button class="btn btn-navy" onclick="openPHCopyModal()">📋 Next Month</button>
             <button class="btn btn-gold" onclick="openPHPrintAllModal()">🖨 Print Invoices</button>
-            <button class="btn btn-gray" onclick="exportPHInvoiceCSV()">⬇ Export CSV</button>
           </div>
         </div>
 
@@ -866,18 +864,6 @@ if (authState === 'owner' || authState === '1') {
             <div style="display:flex;gap:8px;padding-top:2px">
               <button class="btn btn-green" onclick="confirmAddPHPatient()">Add to Agreement &amp; Invoice Tracker</button>
               <button class="btn btn-gray" onclick="togglePHAddForm()">Cancel</button>
-            </div>
-          </div>
-
-          <!-- PH Quick Add Invoice-Only form -->
-          <div id="ph-quick-add-form" class="add-row-form">
-            <div class="form-field"><label>Patient name</label><input type="text" id="ph-qa-name" placeholder="Full name"></div>
-            <div class="form-field"><label>CIN</label><input type="text" id="ph-qa-cin" placeholder="CIN number"></div>
-            <div class="form-field"><label>First day</label><input type="text" id="ph-qa-first" placeholder="MM/DD/YYYY"></div>
-            <div class="form-field"><label>Last day</label><input type="text" id="ph-qa-last" placeholder="MM/DD/YYYY"></div>
-            <div style="display:flex;gap:8px;padding-top:2px">
-              <button class="btn btn-green" onclick="confirmPHQuickAdd()">Add to Invoice</button>
-              <button class="btn btn-gray" onclick="togglePHQuickAddForm()">Cancel</button>
             </div>
           </div>
 
@@ -1047,19 +1033,6 @@ if (authState === 'owner' || authState === '1') {
 
 <!-- PH Print All Modal -->
 <div id="ph-print-all-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center">
-
-<!-- SP Copy to Next Month Modal -->
-<div id="pp-sp-copy-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:16px;padding:24px;width:480px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
-    <div style="font-size:15px;font-weight:600;margin-bottom:4px">Copy to Next Month</div>
-    <div style="font-size:12px;color:#6b7589;margin-bottom:12px">Select self-pay residents to copy to <strong id="pp-sp-copy-next-month"></strong></div>
-    <div id="pp-sp-copy-list" style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px"></div>
-    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
-      <button class="btn btn-gray" onclick="closePPSPCopyModal()">Cancel</button>
-      <button class="btn btn-green" onclick="confirmPPSPCopy()">Copy</button>
-    </div>
-  </div>
-</div>
   <div style="background:#fff;border-radius:16px;padding:24px;width:480px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
     <div style="font-size:15px;font-weight:600;margin-bottom:4px">Print All Invoices</div>
     <div style="font-size:12px;color:#6b7589;margin-bottom:12px">Phoenix Haven — <span id="ph-print-month"></span></div>
@@ -1109,7 +1082,6 @@ if (authState === 'owner' || authState === '1') {
             <div class="month-pills" id="pp-sr-pills" style="margin-bottom:0;flex:1"></div>
             <div style="display:flex;gap:8px">
               <button class="btn btn-green" onclick="ppSRToggleAdd()">+ Add patient</button>
-              <button class="btn btn-gray" onclick="ppSRBackfillMonths()" title="Fill in missing months for existing patients based on their move-in and end dates">↻ Fill missing months</button>
               <button class="btn btn-gray" onclick="ppManualRollover()">→ Next month</button>
               <button class="btn btn-gold" onclick="ppSRPrintAll()">🖨 Print invoices</button>
             </div>
@@ -1145,7 +1117,7 @@ if (authState === 'owner' || authState === '1') {
           <div class="table-wrap">
             <table>
               <thead><tr style="background:#f0f4fa">
-                <th>Invoice #</th><th>Patient</th><th>Facility</th><th>House</th><th>Move-in</th><th>Expires</th><th>Rate</th><th>Window</th><th>Notes</th><th>Paid</th><th></th>
+                <th>Invoice #</th><th>Patient</th><th>Facility</th><th>House</th><th>Move-in</th><th>Expires</th><th>Rate</th><th>Window</th><th>Notes</th><th></th>
               </tr></thead>
               <tbody id="pp-sr-tbody"></tbody>
             </table>
@@ -1159,7 +1131,6 @@ if (authState === 'owner' || authState === '1') {
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px">
             <div class="month-pills" id="pp-sp-pills" style="margin-bottom:0;flex:1"></div>
             <button class="btn btn-green" onclick="ppSPToggleAdd()">+ Add resident</button>
-            <button class="btn btn-navy" onclick="openPPSPCopyModal()">📋 Next Month</button>
           </div>
 
           <div id="pp-sp-add-form" class="add-row-form" style="margin-top:10px">
@@ -1174,7 +1145,6 @@ if (authState === 'owner' || authState === '1') {
             </div>
           </div>
 
-          <div id="pp-sp-reminder" style="display:none;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:12px;color:#92400e;margin-bottom:10px"></div>
           <div id="pp-sp-stats" style="margin:14px 0 8px"></div>
 
           <div class="controls">
@@ -1190,7 +1160,7 @@ if (authState === 'owner' || authState === '1') {
           <div class="table-wrap">
             <table>
               <thead><tr style="background:#f0f4fa">
-                <th>Resident</th><th>House / bed</th><th>Move-in</th><th>Rent due</th><th>Paid</th><th>Balance</th><th>Status</th><th>Notes</th><th></th>
+                <th>Resident</th><th>House / bed</th><th>Move-in</th><th>Rent due</th><th>Paid</th><th>Balance</th><th>Status</th><th></th>
               </tr></thead>
               <tbody id="pp-sp-tbody"></tbody>
             </table>
@@ -4771,7 +4741,6 @@ function isBackdatedLocked(r) {
 function isCoveredByLaterPeriods(r, arr) {
   if (!r || !r.month || !r.name) return false;
   if (r.invoice && /^FL-\d+(PH)?$/.test(r.invoice)) return false; // already billed — leave alone
-  if (r.agreement === 'MANUAL') return false; // Quick Add entries are never suppressed
   if ((r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart) return false; // has its own explicit billing
   const mi = CAL_MONTHS.indexOf((r.month||'').trim());
   if (mi < 0) return false;
@@ -4790,7 +4759,16 @@ function isCoveredByLaterPeriods(r, arr) {
 
 function getDisplayTotal(r) {
   if (isBackdatedLocked(r)) return 0;
-  if (isCoveredByLaterPeriods(r, INVOICE_DATA_ARR)) return 0;
+  if (r.locked) return 0;
+
+  // If month is locked, only show amount for rows with explicit invoice or billing periods
+  if (r.month && isFLMonthLocked(r.month)) {
+    const hasInvoice = r.invoice && /^FL-\d+$/.test(r.invoice);
+    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
+    if (!hasInvoice && !hasPeriods && r.agreement !== 'MANUAL') return 0;
+  }
+
+  if (!r.invoice && isCoveredByLaterPeriods(r, INVOICE_DATA_ARR)) return 0;
   const rate = r.rate || 99;
 
   // MANUAL (Quick Add) entries: always recalculate from their own dates — never pull from tracker
@@ -4803,19 +4781,31 @@ function getDisplayTotal(r) {
 
   if (r.total > 0) return r.total;
 
-  // Calculate main dates via agreement
-  const { firstDay, lastDay } = getEffectiveDates(r);
   const parseDate = s => {
     if (!s) return null;
     const p = s.split('/');
     if (p.length === 3) return new Date(parseInt(p[2].length===2?'20'+p[2]:p[2]), parseInt(p[0])-1, parseInt(p[1]));
     return null;
   };
+
+  // If row has an invoice number, ONLY use stored dates — never pull from tracker
+  const hasInvoice = r.invoice && /^FL-\d+$/.test(r.invoice);
+  if (hasInvoice) {
+    const d1 = parseDate(r.firstDay), d2 = parseDate(r.lastDay);
+    const mainDays = (d1 && d2) ? Math.round((d2 - d1) / 86400000) + 1 : 0;
+    const mainTotal = mainDays * rate;
+    const periodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
+      ? r.billingPeriods.reduce((sum, p) => sum + daysBetweenDates(p.start, p.end) * rate, 0)
+      : (r.priorTotal || 0);
+    return mainTotal + periodsTotal;
+  }
+
+  // No invoice — calculate via agreement tracker as normal
+  const { firstDay, lastDay } = getEffectiveDates(r);
   const d1 = parseDate(firstDay), d2 = parseDate(lastDay);
   const mainDays = (d1 && d2) ? Math.round((d2 - d1) / 86400000) + 1 : 0;
   const mainTotal = mainDays > 0 ? mainDays * rate : 0;
 
-  // Add billing periods on top
   const periodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
     ? r.billingPeriods.reduce((sum, p) => sum + daysBetweenDates(p.start, p.end) * rate, 0)
     : (r.priorTotal || 0);
@@ -5939,8 +5929,7 @@ function renderPHInvoices() {
   document.getElementById('ph-invoice-body').innerHTML=filtered.map(r=>{
     const idx=PH_INVOICE_DATA_ARR.indexOf(r);
     const phMOClass=r.movedOut?' class="moved-out"':'';
-    const isManualPH = r.agreement === 'MANUAL';
-    const agStatus=isManualPH?'active':getPHAgreementStatus(r.name,r.cin,r.month);
+    const agStatus=getPHAgreementStatus(r.name,r.cin,r.month);
     const dotColor=agStatus==='active'?'#22c55e':agStatus==='expiring'?'#eab308':'#ef4444';
     const dotGlow=agStatus==='active'?'rgba(34,197,94,0.6)':agStatus==='expiring'?'rgba(234,179,8,0.6)':'rgba(239,68,68,0.5)';
     const dotTitle=agStatus==='active'?'Agreement active':agStatus==='expiring'?'Expires this month':'No active agreement';
@@ -6008,7 +5997,7 @@ function renderPHInvoices() {
       <td style="font-size:12px;color:var(--muted)">${r.rate?'$'+r.rate:'—'}</td>
       <td class="amount-cell">
         <div style="display:flex;align-items:center;gap:4px">
-          <span>${((agStatus==='active'||agStatus==='expiring'||isManualPH)&&total>0)?'$'+total.toLocaleString():'—'}</span>
+          <span>${(agStatus==='active'||agStatus==='expiring')&&total>0?'$'+total.toLocaleString():'—'}</span>
           <button class="pencil-btn ${(r.billingPeriods&&r.billingPeriods.length>0)?'has-prior':''}" onclick="openPHPriorModal(${idx});event.stopPropagation()" title="Add/edit billing periods">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3L11 2z"/></svg>
           </button>
@@ -6026,7 +6015,7 @@ function renderPHInvoices() {
       <td>${phStatusDropdown(r,idx)}</td>
       <td style="text-align:center;padding:4px">
         ${(()=>{
-          const invoiced = ((agStatus==='active'||agStatus==='expiring'||isManualPH)&&total>0) ? total : 0;
+          const invoiced = (agStatus==='active'||agStatus==='expiring')&&total>0 ? total : 0;
           if (!invoiced) return '<span style="color:#94a3b8;font-size:11px">—</span>';
           const actual = r.actualPaid != null ? r.actualPaid : invoiced;
           const diff = Math.round((parseFloat(actual) - invoiced) * 100) / 100;
@@ -6083,49 +6072,6 @@ function phHeaderAddClick() {
     switchPHTab('invoices');
     setTimeout(togglePHAddForm, 50);
   }
-}
-
-function togglePHQuickAddForm() {
-  const form = document.getElementById('ph-quick-add-form');
-  if (!form) return;
-  form.classList.toggle('visible');
-  if (form.classList.contains('visible')) {
-    const other = document.getElementById('ph-add-form');
-    if (other) other.classList.remove('visible');
-    setTimeout(() => { const el = document.getElementById('ph-qa-name'); if(el) el.focus(); }, 50);
-  }
-}
-
-function confirmPHQuickAdd() {
-  const name = (document.getElementById('ph-qa-name').value || '').trim();
-  if (!name) { showToast('Patient name is required', 'error'); return; }
-  const cin   = (document.getElementById('ph-qa-cin').value   || '').trim();
-  const first = (document.getElementById('ph-qa-first').value || '').trim();
-  const last  = (document.getElementById('ph-qa-last').value  || '').trim();
-
-  PH_INVOICE_DATA_ARR.push({
-    month:      phActiveMonth,
-    invoice:    '',
-    name:       name,
-    cin:        cin,
-    agreement:  'MANUAL',
-    firstDay:   first,
-    lastDay:    last,
-    rate:       99,
-    total:      0,
-    payment:    '',
-    priorStart: '', priorEnd: '', priorDays: 0, priorTotal: 0
-  });
-
-  ['ph-qa-name','ph-qa-cin','ph-qa-first','ph-qa-last'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  const form = document.getElementById('ph-quick-add-form');
-  if (form) form.classList.remove('visible');
-
-  markUnsaved();
-  showToast('\u2713 ' + name + ' added to ' + phActiveMonth + ' PH invoices');
-  renderPH();
 }
 
 function togglePHAddForm() {
@@ -6733,8 +6679,8 @@ function renderPHPayments() {
   const expenses = p.expenses || [];
   const leedyTotal = expenses.filter(e=>e.house==='Leedy House').reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
   const hazelTotal = expenses.filter(e=>e.house==='Hazel House').reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
-  const leedyDeduct = Math.round((leedyTotal * 1/3) * 100) / 100;
-  const hazelDeduct = Math.round((hazelTotal * 1/3) * 100) / 100;
+  const leedyDeduct = leedyTotal;
+  const hazelDeduct = Math.round((hazelTotal * 2/3) * 100) / 100;
   const totalDeduct = Math.round((leedyDeduct + hazelDeduct) * 100) / 100;
 
   const expenseRows = expenses.map((e,i) => `
@@ -6763,17 +6709,17 @@ function renderPHPayments() {
 
   const expenseSummary = totalDeduct > 0 ? `
     <hr style="border:none;border-top:0.5px solid var(--border);margin:14px 0">
-    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px">Reimbursement to FL — deducted from Phoenix Haven's payout</div>
+    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px">Reimbursement to FL — deducted from Keith's payout</div>
     ${leedyTotal > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--muted)">
-      <span><span style="display:inline-block;font-size:10px;font-weight:500;padding:2px 7px;border-radius:4px;background:#e6f1fb;color:#0c447c">Leedy</span> &nbsp;$${leedyTotal.toLocaleString()} → 1/3 Keith's share</span>
+      <span><span style="display:inline-block;font-size:10px;font-weight:500;padding:2px 7px;border-radius:4px;background:#e6f1fb;color:#0c447c">Leedy</span> &nbsp;$${leedyTotal.toLocaleString()} → 100% owed</span>
       <span style="color:#dc2626">−$${leedyDeduct.toLocaleString()}</span>
     </div>` : ''}
     ${hazelTotal > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--muted)">
-      <span><span style="display:inline-block;font-size:10px;font-weight:500;padding:2px 7px;border-radius:4px;background:#ede9fe;color:#3b1f8c">Hazel</span> &nbsp;$${hazelTotal.toLocaleString()} → 1/3 Keith's share</span>
+      <span><span style="display:inline-block;font-size:10px;font-weight:500;padding:2px 7px;border-radius:4px;background:#ede9fe;color:#3b1f8c">Hazel</span> &nbsp;$${hazelTotal.toLocaleString()} → 2/3 owed</span>
       <span style="color:#dc2626">−$${hazelDeduct.toLocaleString()}</span>
     </div>` : ''}
     <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:500;padding-top:8px;margin-top:4px;border-top:0.5px solid var(--border)">
-      <span>Total FL-paid deduction from Phoenix Haven's payout</span>
+      <span>Total FL-paid deduction from Keith's payout</span>
       <span style="color:#dc2626">−$${totalDeduct.toLocaleString()}</span>
     </div>` : '';
 
@@ -6939,8 +6885,6 @@ function phFindTrackerMatch(name, cin) {
 
 function getPHAgreementStatus(name, cin, month) {
   if (!name) return 'none';
-  // MANUAL entries bypass tracker lookup — but only for the specific row that is MANUAL
-  // This check is done in getPHDisplayTotal directly, so here we just check the tracker
   const match = phFindTrackerMatch(name, cin);
   if (!match) return 'none';
   const exp = match['Agreement Exp.'];
@@ -7035,17 +6979,39 @@ function getPHEffectiveDates(r) {
 }
 
 function getPHDisplayTotal(r) {
-  const rate = r.rate || 99;
-  // MANUAL entries bypass everything — calculate directly from dates
-  if (r.agreement === 'MANUAL') {
-    const parseDate = s => { if (!s) return null; const p=s.split('/'); if(p.length===3) return new Date(parseInt(p[2].length===2?'20'+p[2]:p[2]),parseInt(p[0])-1,parseInt(p[1])); return null; };
-    const d1=parseDate(r.firstDay), d2=parseDate(r.lastDay);
-    if (d1&&d2) { const days=Math.round((d2-d1)/86400000)+1; return days>0?days*rate:0; }
-    return 0;
-  }
   if (isBackdatedLocked(r)) return 0;
   if (r.locked) return 0;
+
+  // If month is locked, only show amount for rows with explicit invoice or billing periods
+  if (r.month && isPHMonthLocked(r.month)) {
+    const hasInvoice = r.invoice && /^FL-\d+PH$/.test(r.invoice);
+    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
+    if (!hasInvoice && !hasPeriods && r.agreement !== 'MANUAL') return 0;
+  }
+
   if (!r.invoice && isCoveredByLaterPeriods(r, PH_INVOICE_DATA_ARR)) return 0;
+  const rate = r.rate || 99;
+
+  // MANUAL entries bypass everything
+  if (r.agreement === 'MANUAL') {
+    const _p = s => { if (!s) return null; const p=s.split('/'); return p.length===3?new Date(parseInt(p[2].length===2?'20'+p[2]:p[2]),parseInt(p[0])-1,parseInt(p[1])):null; };
+    const _d1=_p(r.firstDay), _d2=_p(r.lastDay);
+    const _days=(_d1&&_d2)?Math.round((_d2-_d1)/86400000)+1:0;
+    return _days*rate;
+  }
+
+  // If row has an invoice number, ONLY use stored dates — never pull from tracker
+  const hasPHInvoice = r.invoice && /^FL-\d+PH$/.test(r.invoice);
+  if (hasPHInvoice) {
+    const _p = s => { if (!s) return null; const p=s.split('/'); return p.length===3?new Date(parseInt(p[2].length===2?'20'+p[2]:p[2]),parseInt(p[0])-1,parseInt(p[1])):null; };
+    const _d1=_p(r.firstDay), _d2=_p(r.lastDay);
+    const _mainDays=(_d1&&_d2)?Math.round((_d2-_d1)/86400000)+1:0;
+    const _periodsTotal=(r.billingPeriods&&r.billingPeriods.length>0)
+      ?r.billingPeriods.reduce((sum,p)=>sum+daysBetweenDates(p.start,p.end)*rate,0)
+      :(r.priorTotal||0);
+    return (_mainDays*rate)+_periodsTotal;
+  }
+
   if (r.total > 0) return r.total;
   const { firstDay, lastDay } = getPHEffectiveDates(r);
   const parseDate = s => {
@@ -7564,7 +7530,7 @@ function setReferrer(key) {
 
 // -- Disbursement Statement --
 function printDisbursementStatement(month) {
-  var rows = PH_INVOICE_DATA_ARR.filter(function(r){ if (r.month !== month || !r.name) return false; return getPHDisplayTotal(r) > 0; });
+  var rows = PH_INVOICE_DATA_ARR.filter(function(r){ if (r.month !== month || !r.name) return false; var s = getPHAgreementStatus(r.name, r.cin, month); return s === 'active' || s === 'expiring' || getPHDisplayTotal(r) > 0; });
   if (!rows.length) {
     var ok = confirm('No patients with active agreements or invoices found for ' + month + '.\n\nGenerate a blank statement anyway?');
     if (!ok) return;
@@ -7574,26 +7540,23 @@ function printDisbursementStatement(month) {
   var ptRows = rows.map(function(r, i) {
     var agStatus = getPHAgreementStatus(r.name, r.cin, r.month);
     var eff      = getPHEffectiveDates(r);
-    var fd = (agStatus==='active'||agStatus==='expiring'||r.agreement==='MANUAL') ? (r.firstDay ? formatDate(r.firstDay) : (eff.firstDay||'')) : '';
-    var ld = (agStatus==='active'||agStatus==='expiring'||r.agreement==='MANUAL') ? (r.lastDay  ? formatDate(r.lastDay)  : (getLastDayFromPH(r.name,r.cin,r.month)||(eff.lastDay||''))) : '';
+    // Match invoice tab logic exactly
+    var fd = (agStatus==='active'||agStatus==='expiring') ? (r.firstDay ? formatDate(r.firstDay) : (eff.firstDay||'')) : '';
+    var ld = (agStatus==='active'||agStatus==='expiring') ? (r.lastDay  ? formatDate(r.lastDay)  : (getLastDayFromPH(r.name,r.cin,r.month)||(eff.lastDay||''))) : '';
+    // Derive days from total amount so it always matches exactly
     var amt = getPHDisplayTotal(r); gross += amt;
     var days = amt > 0 ? Math.round(amt / PH_RATE) : getPHDays(r);
-
-    // Build date display — show all periods
-    var dateLines = [];
-    if (fd && ld) dateLines.push(fd + ' – ' + ld);
+    // Show billing period date range if present
+    var displayFd = fd, displayLd = ld;
     if (r.billingPeriods && r.billingPeriods.length > 0) {
-      r.billingPeriods.forEach(function(p) {
-        var ps = p.start ? ((safeParseDate(p.start).getMonth()+1)+'/'+safeParseDate(p.start).getDate()+'/'+safeParseDate(p.start).getFullYear()) : '';
-        var pe = p.end   ? ((safeParseDate(p.end).getMonth()+1)+'/'+safeParseDate(p.end).getDate()+'/'+safeParseDate(p.end).getFullYear()) : '';
-        if (ps && pe) dateLines.push(ps + ' – ' + pe);
-      });
+      var allStarts = r.billingPeriods.map(function(p){ return safeParseDate(p.start); }).filter(function(d){ return !isNaN(d); });
+      var allEnds = r.billingPeriods.map(function(p){ return safeParseDate(p.end); }).filter(function(d){ return !isNaN(d); });
+      if (allStarts.length) { var mn=new Date(Math.min.apply(null,allStarts)); displayFd=(mn.getMonth()+1)+'/'+mn.getDate()+'/'+mn.getFullYear(); }
+      if (allEnds.length) { var mx=new Date(Math.max.apply(null,allEnds)); displayLd=(mx.getMonth()+1)+'/'+mx.getDate()+'/'+mx.getFullYear(); }
     }
-    var displayDates = dateLines.length > 0 ? dateLines.join('<br>') : '—';
-
     var nameParts = (r.name||'').trim().split(/\s+/);
     var displayName = nameParts.length >= 2 ? nameParts[0].charAt(0) + ' ' + nameParts.slice(1).join(' ') : (r.name||'');
-    return '<tr><td>' + (i+1) + '</td><td>' + displayName + '</td><td colspan="2" style="font-size:11px;line-height:1.6">' + displayDates + '</td><td>' + (days||'—') + '</td><td>$' + PH_RATE + '.00</td><td>$' + amt.toLocaleString() + '.00</td></tr>';
+    return '<tr><td>' + (i+1) + '</td><td>' + displayName + '</td><td>' + (displayFd||'—') + '</td><td>' + (displayLd||'—') + '</td><td>' + (days||'—') + '</td><td>$' + PH_RATE + '.00</td><td>$' + amt.toLocaleString() + '.00</td></tr>';
   }).join('');
 
   // Always use operating expense model (matching original slip layout)
@@ -7609,14 +7572,14 @@ function printDisbursementStatement(month) {
   var hazelExp = expenses.filter(function(e){ return e.house === 'Hazel House'; });
   var leedyTotal = leedyExp.reduce(function(s,e){ return s + (parseFloat(e.amount)||0); }, 0);
   var hazelTotal = hazelExp.reduce(function(s,e){ return s + (parseFloat(e.amount)||0); }, 0);
-  var leedyDeduct = Math.round(leedyTotal * 1/3 * 100) / 100;
-  var hazelDeduct = Math.round(hazelTotal * 1/3 * 100) / 100;
+  var leedyDeduct = leedyTotal;
+  var hazelDeduct = Math.round(hazelTotal * 2/3 * 100) / 100;
   var totalDeduct = Math.round((leedyDeduct + hazelDeduct) * 100) / 100;
   var adjustedPH = Math.max(0, phTotal - totalDeduct);
 
   var expenseRows = expenses.length > 0 ? expenses.map(function(e, i) {
-    var pct = '33%';
-    var deduct = Math.round((parseFloat(e.amount)||0) * 1/3 * 100)/100;
+    var pct = e.house === 'Leedy House' ? '100%' : '67%';
+    var deduct = e.house === 'Leedy House' ? (parseFloat(e.amount)||0) : Math.round((parseFloat(e.amount)||0) * 2/3 * 100)/100;
     return '<tr><td>' + (e.date||'') + '</td><td>' + (e.description||'') + '</td><td>' + (e.house||'') + '</td><td>$' + (parseFloat(e.amount)||0).toLocaleString() + '</td><td>' + pct + '</td><td style="font-weight:600;color:#c0392b">-$' + deduct.toLocaleString() + '</td></tr>';
   }).join('') : '<tr><td colspan="6" style="color:#bbb;text-align:center">No FL-paid expenses recorded</td></tr>';
 
@@ -7626,7 +7589,7 @@ function printDisbursementStatement(month) {
     + '<tbody>' + expenseRows + '</tbody>'
     + '</table>'
     + (totalDeduct > 0 ? '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:#fff5f5;border:1px solid #f0d0d0;border-top:none;font-size:13px;font-weight:700;color:#c0392b">'
-      + '<span>Total deducted from Phoenix Haven\'s payout</span><span>-$' + totalDeduct.toLocaleString() + '</span></div>' : '')
+      + '<span>Total deducted from Keith\'s payout</span><span>-$' + totalDeduct.toLocaleString() + '</span></div>' : '')
     + '</div>';
   var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var moIdx      = monthNames.indexOf(month);
@@ -7670,7 +7633,7 @@ function printDisbursementStatement(month) {
     // Patient table
     + '<div class="sec-title">Patient Roster</div>'
     + '<div class="tbl-wrap"><table>'
-    +   '<thead><tr><th>#</th><th>Patient</th><th colspan="2">Billing Dates</th><th>Days This Period</th><th>Rate / Day</th><th>Amount</th></tr></thead>'
+    +   '<thead><tr><th>#</th><th>Patient</th><th>Date From</th><th>Date To</th><th>Days This Period</th><th>Rate / Day</th><th>Amount</th></tr></thead>'
     +   '<tbody>' + ptRows + '</tbody>'
     + '</table></div>'
 
@@ -7684,8 +7647,7 @@ function printDisbursementStatement(month) {
     +   '<div class="calc-block"><h4>Payment to Phoenix Haven</h4>'
     +     '<div class="cr"><span>Operating Expense Reimbursement</span><span>$' + opEx.toLocaleString() + '.00</span></div>'
     +     '<div class="cr"><span>1/3 Profit Share</span><span>$' + phProfit.toLocaleString() + '.00</span></div>'
-    +     (totalDeduct > 0 ? '<div class="cr red"><span>Less: FL Expense Deductions</span><span>-$' + totalDeduct.toLocaleString() + '</span></div>' : '')
-    +     '<div class="cr bold"><span>Total Payment</span><span>$' + (Number.isInteger(adjustedPH) ? adjustedPH.toLocaleString() + '.00' : adjustedPH.toLocaleString()) + '</span></div>'
+    +     '<div class="cr bold"><span>Total Payment</span><span>$' + phTotal.toLocaleString() + '.00</span></div>'
     +   '</div>'
     + '</div>'
 
@@ -7705,7 +7667,7 @@ function printDisbursementStatement(month) {
     +   '<div class="paybox-hdr">Total Payment Issued This Period</div>'
     +   '<div class="paybox-body">'
     +     '<div><div class="pt-label">Pay To</div><div class="pt-name">Phoenix Haven LLC</div></div>'
-    +     '<div><div class="amt-label">Amount' + (totalDeduct > 0 ? ' (after FL expense deductions)' : '') + '</div><div class="amt-val">$' + (Number.isInteger(adjustedPH) ? adjustedPH.toLocaleString() + '.00' : adjustedPH.toLocaleString()) + '</div></div>'
+    +     '<div><div class="amt-label">Amount' + (totalDeduct > 0 ? ' (after FL expense deductions)' : '') + '</div><div class="amt-val">$' + adjustedPH.toLocaleString() + '.00</div></div>'
     +   '</div>'
     + '</div>'
 
@@ -7786,51 +7748,21 @@ function ppCheckExpiry(){
   var urgent=[],warn=[];
   PP_BEDS.forEach(function(b){
     if(!b.end||!b.name) return;
-    if(b.monthToMonth) return; // skip month-to-month patients
     var dl=ppDaysLeft(b.end);
     if(dl===null) return;
     if(dl<=14) urgent.push(b);
     else if(dl<=30) warn.push(b);
   });
   var total=urgent.length+warn.length;
-
-  // Check self-pay unpaid reminder — only last 5 days of month
-  var daysInMonth=new Date(today.getFullYear(),today.getMonth()+1,0).getDate();
-  var daysLeft=daysInMonth-today.getDate();
-  var spUnpaid=0;
-  if(daysLeft<5){
-    var PP_SR_MONTH_ORDER2=['January','February','March','April','May','June','July','August','September','October','November','December'];
-    var curMonthName=PP_SR_MONTH_ORDER2[today.getMonth()];
-    PP_SELFPAY.forEach(function(r){
-      var hist=r.history||[];
-      var entry=null;
-      for(var i=0;i<hist.length;i++){if(hist[i].month===curMonthName){entry=hist[i];break;}}
-      var paid=entry?entry.paid:0;
-      if(paid<(r.rent||0)) spUnpaid++;
-    });
-  }
-
-  // Update nav badge — combine expiry + unpaid self-pay
+  // Update nav badge
   var badge=document.getElementById('pp-expiry-badge');
   if(badge){
-    var badgeCount=total+(spUnpaid>0?spUnpaid:0);
-    if(badgeCount>0){
-      badge.textContent=badgeCount;
+    if(total>0){
+      badge.textContent=total;
       badge.style.display='inline-block';
-      badge.style.background=urgent.length>0?'#e53e3e':spUnpaid>0?'#d97706':'#dd6b20';
+      badge.style.background=urgent.length>0?'#e53e3e':'#dd6b20';
     } else {
       badge.style.display='none';
-    }
-  }
-
-  // Self-pay reminder banner
-  var spBanner=document.getElementById('pp-sp-reminder');
-  if(spBanner){
-    if(spUnpaid>0){
-      spBanner.style.display='';
-      spBanner.innerHTML='💰 <strong>'+spUnpaid+' self-pay resident'+(spUnpaid>1?'s':'')+' still unpaid</strong> for '+new Date().toLocaleString('default',{month:'long'})+' — '+daysLeft+' day'+(daysLeft===1?'':'s')+' left in the month.';
-    } else {
-      spBanner.style.display='none';
     }
   }
   // Update alert banner
@@ -7867,7 +7799,12 @@ function ppInit(){
     // For SR: months come from PP_BEDS entries — add placeholder if needed
     // We track SR months separately
     if(PP_SR_MONTHS.indexOf(m)===-1) PP_SR_MONTHS.push(m);
-    // SP months are managed manually via Next Month button — no auto-add
+    // For SP: months come from resident history entries
+    PP_SELFPAY.forEach(function(r){
+      if(!r.history) r.history=[];
+      var has=r.history.some(function(h){return h.month===m;});
+      if(!has) r.history.push({month:m,paid:0});
+    });
   });
   ppCheckExpiry();
   ppRenderFacilityPills();
@@ -7923,94 +7860,33 @@ function ppSRSelectMonth(m){
   ppSRRenderPills();
 }
 
-function ppSRBackfillMonths(){
-  var parseDatePP=function(s){ var p=(s||'').split('/'); return p.length===3?new Date(parseInt(p[2]),parseInt(p[0])-1,parseInt(p[1])):new Date(s); };
-  var added=0;
-
-  // Get unique patients (by name+facility)
-  var seen={};
-  PP_BEDS.forEach(function(b){ var key=(b.name||'')+'|'+(b.facility||''); seen[key]=b; });
-
-  Object.keys(seen).forEach(function(key){
-    var template=seen[key];
-    if(!template.movein||!template.end) return;
-    var d1=parseDatePP(template.movein); var d2=parseDatePP(template.end);
-    if(isNaN(d1)||isNaN(d2)) return;
-
-    var cur=new Date(d1.getFullYear(),d1.getMonth(),1);
-    var last=new Date(d2.getFullYear(),d2.getMonth(),1);
-    while(cur<=last){
-      var month=PP_SR_MONTH_ORDER[cur.getMonth()];
-      var exists=PP_BEDS.some(function(b){ return b.name===template.name&&b.facility===template.facility&&b.month===month; });
-      if(!exists){
-        var invNum=ppSRNextInvNum();
-        PP_BEDS.unshift({
-          name:template.name, facility:template.facility, notes:template.notes||'',
-          house:template.house||'', movein:template.movein, end:template.end,
-          rate:template.rate||'850', month:month, invoice:invNum,
-          status:'Invoiced', movedOut:false
-        });
-        added++;
-      }
-      cur.setMonth(cur.getMonth()+1);
-    }
-  });
-
-  if(added>0){
-    markUnsaved();
-    ppSRRenderPills();
-    showToast('✓ Added '+added+' missing month'+(added>1?'s':''));
-  } else {
-    showToast('No missing months found — all patients are up to date');
-  }
-}
-
 function ppSRAddPatient(){
   var name=document.getElementById('pp-sr-f-name').value.trim();
   if(!name){showToast('Enter a patient name');return;}
+  var month=ppSRActiveMonth||PP_SR_MONTH_ORDER[new Date().getMonth()];
+  var invNum=ppSRNextInvNum();
   var facility=document.getElementById('pp-sr-f-facility').value.trim()||'Sac Recovery';
   if(PP_FACILITIES.indexOf(facility)===-1){PP_FACILITIES.push(facility);ppRenderFacilityPills();}
-  var movein=document.getElementById('pp-sr-f-movein').value.trim();
-  var end=document.getElementById('pp-sr-f-end').value.trim();
-  var rate=document.getElementById('pp-sr-f-rate').value.trim()||'850';
-  var house=document.getElementById('pp-sr-f-house').value.trim();
-  var notes=document.getElementById('pp-sr-f-notes').value.trim();
-
-  // Determine months to populate from movein → end
-  var monthsToAdd=[];
-  if(movein&&end){
-    var parseDatePP=function(s){ var p=s.split('/'); return p.length===3?new Date(parseInt(p[2]),parseInt(p[0])-1,parseInt(p[1])):new Date(s); };
-    var d1=parseDatePP(movein); var d2=parseDatePP(end);
-    if(!isNaN(d1)&&!isNaN(d2)){
-      var cur=new Date(d1.getFullYear(),d1.getMonth(),1);
-      var last=new Date(d2.getFullYear(),d2.getMonth(),1);
-      while(cur<=last){
-        monthsToAdd.push(PP_SR_MONTH_ORDER[cur.getMonth()]);
-        cur.setMonth(cur.getMonth()+1);
-      }
-    }
-  }
-  if(!monthsToAdd.length) monthsToAdd=[ppSRActiveMonth||PP_SR_MONTH_ORDER[new Date().getMonth()]];
-
-  monthsToAdd.forEach(function(month){
-    // Don't duplicate
-    var exists=PP_BEDS.some(function(b){return b.name===name&&b.month===month&&b.facility===facility;});
-    if(exists) return;
-    var invNum=ppSRNextInvNum();
-    PP_BEDS.unshift({
-      name:name, facility:facility, notes:notes, house:house,
-      movein:movein, end:end, rate:rate,
-      month:month, invoice:invNum, status:'Invoiced', movedOut:false
-    });
-  });
-
+  var entry={
+    name:name,
+    facility:facility,
+    notes:document.getElementById('pp-sr-f-notes').value.trim(),
+    house:document.getElementById('pp-sr-f-house').value.trim(),
+    movein:document.getElementById('pp-sr-f-movein').value.trim(),
+    end:document.getElementById('pp-sr-f-end').value.trim(),
+    rate:document.getElementById('pp-sr-f-rate').value.trim()||'850',
+    month:month,
+    invoice:invNum,
+    status:'Invoiced'
+  };
+  PP_BEDS.unshift(entry);
   document.getElementById('pp-sr-f-months').value='4';
   ['pp-sr-f-name','pp-sr-f-facility','pp-sr-f-house','pp-sr-f-movein','pp-sr-f-end','pp-sr-f-rate','pp-sr-f-notes'].forEach(function(id){document.getElementById(id).value='';});
   ppSRToggleAdd();
-  ppSRActiveMonth=monthsToAdd[0];
+  ppSRActiveMonth=month;
   ppSRRenderPills();
   markUnsaved();
-  showToast('Patient added across '+monthsToAdd.length+' month'+(monthsToAdd.length>1?'s':''));
+  showToast('Patient added — '+invNum);
 }
 
 function ppSRNextInvNum(){
@@ -8071,35 +7947,17 @@ function ppSRRender(){
       var r=item.r; var i=item.i;
       return '<tr data-idx="'+i+'">'+
         '<td style="font-family:DM Mono,monospace;font-size:12px;font-weight:600" '+ce+' data-field="invoice">'+(r.invoice||'')+'</td>'+
-        '<td style="font-weight:500;color:#1a202c">'+
-          '<div '+ce+' data-field="name">'+(r.name||'')+'</div>'+
-          '<div contenteditable="true" onblur="ppSRSaveNote('+i+',this.textContent)" style="font-size:10px;color:#a82828;outline:none;min-width:20px;cursor:text;margin-top:1px;line-height:1.2" title="Click to add note">'+(r.note||'')+'</div>'+
-          '<label class="mtm-label" style="font-size:10px;color:#718096;cursor:pointer;display:inline-flex;align-items:center;gap:3px;margin-top:2px;opacity:'+(r.monthToMonth?'1':'0')+';transition:opacity 0.15s" onmouseover="this.style.opacity=1" onmouseout="if(!this.querySelector(\'input\').checked)this.style.opacity=0"><input type="checkbox" '+(r.monthToMonth?'checked':'')+' onchange="ppSRToggleMonthToMonth('+i+',this.checked);this.closest(\'label\').style.opacity=this.checked?1:0" style="width:11px;height:11px;cursor:pointer"> M-T-M</label>'+
-          (r.movedOut ? '<div onclick="ppSRUndoMoveOut('+i+')" title="Click to undo move out" style="font-size:10px;color:#e53e3e;font-weight:600;margin-top:2px;cursor:pointer">📦 Moved out'+(r.moveOutDate?' <span style="font-weight:400">'+r.moveOutDate+'</span>':'')+' ↩</div>' : '')+
-        '</td>'+
+        '<td style="font-weight:500;color:#1a202c" '+ce+' data-field="name">'+(r.name||'')+'</td>'+
         '<td style="font-size:12px;color:#185FA5;font-weight:500" '+ce+' data-field="facility">'+(r.facility||'')+'</td>'+
         '<td style="color:#5d6b82" '+ce+' data-field="house">'+(r.house||'')+'</td>'+
         '<td style="font-size:12px;color:#5d6b82" '+ce+' data-field="movein">'+(r.movein||'')+'</td>'+
-        (function(){
-          var endParts=(r.end||'').split('/');
-          var expiresThisMonth=endParts.length===3&&parseInt(endParts[0])-1===PP_SR_MONTH_ORDER.indexOf(r.month)%12;
-          var dl=ppDaysLeft(r.end);
-          var col=dl!==null&&dl<=14?'#c53030':dl!==null&&dl<=30?'#c05621':'#5d6b82';
-          var fw=expiresThisMonth?'font-weight:700;color:#c53030!important;':'';
-          var finalCol=expiresThisMonth?'#c53030':col;
-          return '<td style="font-size:12px;color:'+finalCol+';'+(expiresThisMonth?'font-weight:700;':'')+'" '+ce+' data-field="end">'+(r.end||'')+'</td>';
-        })()+
+        '<td style="font-size:12px;color:'+(ppDaysLeft(r.end)!==null&&ppDaysLeft(r.end)<=14?'#c53030':ppDaysLeft(r.end)!==null&&ppDaysLeft(r.end)<=30?'#c05621':'#5d6b82')+'" '+ce+' data-field="end">'+(r.end||'')+'</td>'+
         '<td style="font-family:DM Mono,monospace;font-weight:600;color:#1e6b3d" '+ce+' data-field="rate">'+(r.rate||'')+'</td>'+
 
         '<td style="white-space:nowrap">'+ppSRWindowDots(r)+'</td>'+
         '<td style="font-size:12px;color:#5d6b82;min-width:100px" '+ce+' data-field="notes">'+(r.notes||'')+'</td>'+
         '<td style="white-space:nowrap">'+
-          (r.paid
-            ? '<span onclick="ppSRTogglePaid('+i+')" title="Click to mark unpaid" style="cursor:pointer;display:inline-block;background:#f0f7ed;color:#1e6b3d;border:1px solid #b6dba8;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:600">✓ Paid</span>'
-            : '<span onclick="ppSRTogglePaid('+i+')" title="Click to mark paid" style="cursor:pointer;display:inline-block;background:#fff5f5;color:#c53030;border:1px solid #fed7d7;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:600">Unpaid</span>')+
-        '</td>'+
-        '<td style="white-space:nowrap">'+
-          (!r.movedOut ? '<button onclick="ppSRMoveOut('+i+')" style="opacity:0;background:#fff5f5;border:1px solid #fed7d7;color:#c53030;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;margin-right:4px;font-family:inherit" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">📦 Out</button>' : '')+
+          '<button onclick="ppSRPrintOne('+i+')" style="background:#e8f4fd;border:1px solid #bee3f8;color:#2b6cb0;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;margin-right:4px;font-family:inherit">Invoice</button>'+
           '<button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1" onclick="ppSRDel('+i+')">&#x2715;</button>'+
         '</td>'+
         '</tr>';
@@ -8116,53 +7974,6 @@ function ppSRUpdateStatus(i,val){
   ppSRRender();
   markUnsaved();
 }
-function ppSRUndoMoveOut(i){
-  if(!confirm('Undo move out for '+(PP_BEDS[i].name||'this patient')+'?')) return;
-  var name=PP_BEDS[i].name;
-  var facility=PP_BEDS[i].facility;
-  var curMonthIdx=PP_SR_MONTH_ORDER.indexOf(ppSRActiveMonth);
-  PP_BEDS.forEach(function(b){
-    if(b.name===name&&b.facility===facility){
-      var bIdx=PP_SR_MONTH_ORDER.indexOf(b.month);
-      if(bIdx>=curMonthIdx){ b.movedOut=false; delete b.moveOutDate; }
-    }
-  });
-  markUnsaved();
-  ppSRRender();
-  showToast('✓ Move out undone for '+name);
-}
-
-function ppSRMoveOut(i){
-  var name=PP_BEDS[i].name||'this patient';
-  var moveOutDate=prompt('Move-out date for '+name+' (MM/DD/YYYY):');
-  if(!moveOutDate) return;
-  var facility=PP_BEDS[i].facility;
-  var curMonthIdx=PP_SR_MONTH_ORDER.indexOf(ppSRActiveMonth);
-  PP_BEDS.forEach(function(b){
-    if(b.name===PP_BEDS[i].name&&b.facility===facility){
-      var bIdx=PP_SR_MONTH_ORDER.indexOf(b.month);
-      if(bIdx>=curMonthIdx){ b.movedOut=true; b.moveOutDate=moveOutDate; }
-    }
-  });
-  markUnsaved();
-  ppSRRender();
-  showToast('✓ '+name+' marked as moved out '+moveOutDate);
-}
-
-function ppSRToggleMonthToMonth(i, val) {
-  if (PP_BEDS[i]) { PP_BEDS[i].monthToMonth = val; markUnsaved(); ppCheckExpiry(); }
-}
-
-function ppSRSaveNote(i, val) {
-  if (PP_BEDS[i]) { PP_BEDS[i].note = val.trim(); markUnsaved(); }
-}
-
-function ppSRTogglePaid(i){
-  PP_BEDS[i].paid = !PP_BEDS[i].paid;
-  markUnsaved();
-  ppSRRender();
-}
-
 function ppSRDel(i){
   if(confirm('Remove this patient?')){PP_BEDS.splice(i,1);ppSRRenderPills();markUnsaved();showToast('Removed');}
 }
@@ -8175,44 +7986,28 @@ function ppSRWindowDots(r){
   if(p.length!==3||pe.length!==3) return '<span style="font-size:11px;color:#a0aec0">Add move-in &amp; expiry dates</span>';
   var startDate=new Date(Number(p[2]),Number(p[0])-1,Number(p[1]));
   var expDate=new Date(Number(pe[2]),Number(pe[0])-1,Number(pe[1]));
-  var totalDays=Math.max(1,Math.round((expDate-startDate)/86400000)+1);
-
-  // Days elapsed up to and including this row's month
-  var rowMonthIdx=PP_SR_MONTH_ORDER.indexOf(r.month);
-  var startMonthIdx=startDate.getMonth();
-  var monthsElapsed=rowMonthIdx-startMonthIdx;
-  if(monthsElapsed<0) monthsElapsed=0;
-  // End of the row's month
-  var rowYear=startDate.getFullYear()+Math.floor((startDate.getMonth()+monthsElapsed)/12);
-  var rowMonth=(startDate.getMonth()+monthsElapsed)%12;
-  var endOfRowMonth=new Date(rowYear,rowMonth+1,0); // last day of row month
-  // Days billed = from startDate to end of this row's month, capped at expDate
-  var billedThrough=endOfRowMonth<expDate?endOfRowMonth:expDate;
-  var daysBilled=Math.max(0,Math.round((billedThrough-startDate)/86400000)+1);
-  var pct=Math.min(1,daysBilled/totalDays);
-  var deg=Math.round(pct*360);
-
-  // Colors
-  var fillColor='#2d6a1f';
-  var emptyColor='#e2e8f0';
-  var border='#1e6b3d';
-  var bg;
-  if(pct>=1){ bg=fillColor; }
-  else if(pct<=0){ bg=emptyColor; border='#c8d0dc'; }
-  else { bg='conic-gradient('+fillColor+' 0deg '+deg+'deg, '+emptyColor+' '+deg+'deg 360deg)'; }
-
+  // Calculate total months from move-in to expiration
   var totalMonths=((expDate.getFullYear()-startDate.getFullYear())*12)+(expDate.getMonth()-startDate.getMonth());
-  var monthsPassed=monthsElapsed+1;
-  if(monthsPassed>totalMonths) monthsPassed=totalMonths;
+  if(expDate.getDate()>startDate.getDate()) totalMonths+=1;
+  if(totalMonths<1) totalMonths=1;
+  var today=new Date(); today.setHours(0,0,0,0);
+  var dots='<div style="margin-bottom:2px">';
+  var monthsPassed=0;
+  for(var d=0;d<totalMonths;d++){
+    var mStart=new Date(startDate.getFullYear(),startDate.getMonth()+d,startDate.getDate());
+    var passed=today>=mStart;
+    if(passed) monthsPassed++;
+    var color=passed?'#2d6a1f':'#dde2ea';
+    var border=passed?'#1e6b3d':'#c8d0dc';
+    var mName=mStart.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+    var label=passed?mName+' (started)':mName+' (upcoming)';
+    dots+='<span title="'+label+'" style="display:inline-block;width:13px;height:13px;border-radius:50%;background:'+color+';margin-right:3px;border:1px solid '+border+'"></span>';
+  }
   var remaining=(totalMonths-monthsPassed)*rate;
-  var balColor='#1e6b3d';
-  var pctLabel=Math.round(pct*100)+'%';
-  var tooltip=daysBilled+' of '+totalDays+' days ('+pctLabel+') — $'+remaining.toLocaleString()+' remaining';
-
-  return '<div style="display:inline-flex;align-items:center;gap:8px">'+
-    '<span title="'+tooltip+'" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:'+bg+';border:1.5px solid '+border+';flex-shrink:0"></span>'+
-    '<div style="font-size:11px;font-family:DM Mono,monospace;color:'+balColor+'">'+pctLabel+' &bull; '+monthsPassed+'/'+totalMonths+' mo &bull; $'+remaining.toLocaleString()+' left</div>'+
-  '</div>';
+  var balColor=remaining<=rate?'#c53030':remaining<=rate*2?'#c05621':'#1e6b3d';
+  dots+='</div><div style="font-size:11px;font-family:DM Mono,monospace;color:'+balColor+';margin-top:3px">'+
+    monthsPassed+'/'+totalMonths+' mo &bull; $'+remaining.toLocaleString()+' left</div>';
+  return '<div style="display:inline-block">'+dots+'</div>';
 }
 function ppSRPrintOne(i){
   var r=PP_BEDS[i];
@@ -8363,51 +8158,6 @@ function ppSRPrintAll(){
 }
 
 // ── SELF PAY ──
-function openPPSPCopyModal(){
-  var curIdx=PP_SR_MONTH_ORDER.indexOf(ppSPActiveMonth);
-  if(curIdx===-1||curIdx>=PP_SR_MONTH_ORDER.length-1){showToast('No next month available');return;}
-  var nextMonth=PP_SR_MONTH_ORDER[curIdx+1];
-  document.getElementById('pp-sp-copy-next-month').textContent=nextMonth;
-  var residents=PP_SELFPAY.filter(function(r){return r.month===ppSPActiveMonth||!r.month;});
-  // Deduplicate by name
-  var seen={}, unique=[];
-  residents.forEach(function(r){if(!seen[r.name]){seen[r.name]=true;unique.push(r);}});
-  var list=document.getElementById('pp-sp-copy-list');
-  list._residents=unique;
-  list._nextMonth=nextMonth;
-  list.innerHTML=unique.map(function(r,i){
-    return '<label class="copy-patient-item" for="ppsp_cp_'+i+'">'
-      +'<input type="checkbox" id="ppsp_cp_'+i+'" checked style="width:15px;height:15px;accent-color:#3d7a2e;cursor:pointer;flex-shrink:0">'
-      +'<div><div style="font-size:13px;font-weight:500;color:var(--text)">'+r.name+'</div>'
-      +(r.bed?'<div style="font-size:11px;color:var(--muted)">'+r.bed+'</div>':'')
-      +'</div></label>';
-  }).join('');
-  document.getElementById('pp-sp-copy-modal').style.display='flex';
-}
-function closePPSPCopyModal(){document.getElementById('pp-sp-copy-modal').style.display='none';}
-function confirmPPSPCopy(){
-  var list=document.getElementById('pp-sp-copy-list');
-  var residents=list._residents;
-  var nextMonth=list._nextMonth;
-  var count=0;
-  residents.forEach(function(r,i){
-    var cb=document.getElementById('ppsp_cp_'+i);
-    if(cb&&cb.checked){
-      var exists=PP_SELFPAY.some(function(x){return x.name===r.name&&x.month===nextMonth;});
-      if(!exists){
-        PP_SELFPAY.unshift({
-          name:r.name, bed:r.bed||'', movein:r.movein||'',
-          rent:r.rent||0, deposit:r.deposit||0, notes:r.notes||'',
-          history:[{month:nextMonth,paid:0}], month:nextMonth
-        });
-        count++;
-      }
-    }
-  });
-  closePPSPCopyModal();
-  if(count>0){ppSPActiveMonth=nextMonth;markUnsaved();ppSPRenderPills();showToast('✓ Copied '+count+' resident'+(count>1?'s':'')+' to '+nextMonth);}
-}
-
 function ppSPToggleAdd(){var f=document.getElementById('pp-sp-add-form');if(f)f.classList.toggle('visible');}
 
 function ppSPGetMonths(){
@@ -8523,7 +8273,6 @@ function ppSPRender(){
 
   if(empty)empty.style.display='none';
   if(count)count.textContent='Showing '+rows.length+' residents for '+ppSPActiveMonth;
-  ppCheckExpiry();
 
   var spIndexed=[];
   for(var si=0;si<PP_SELFPAY.length;si++){
@@ -8544,21 +8293,14 @@ function ppSPRender(){
     var paid=item.paid; var rent=item.rent; var balance=item.balance;
     var st=item.st==='paid'?{cls:'badge-green',label:'Paid'}:item.st==='partial'?{cls:'badge-orange',label:'Partial'}:{cls:'badge-red',label:'Overdue'};
     return '<tr data-idx="'+ri+'">'+
-      '<td style="font-weight:500;color:#1a202c">'+
-        '<div '+ce2+' data-field="name">'+(r.name||'')+'</div>'+
-        (r.movedOut?'<div onclick="ppSPUndoMoveOut('+ri+')" title="Click to undo" style="font-size:10px;color:#e53e3e;font-weight:600;margin-top:2px;cursor:pointer">📦 Moved out '+(r.moveOutDate?r.moveOutDate:'')+'  ↩</div>':'')+
-      '</td>'+
+      '<td style="font-weight:500;color:#1a202c" '+ce2+' data-field="name">'+(r.name||'')+'</td>'+
       '<td style="font-size:12px;color:#5d6b82" '+ce2+' data-field="bed">'+(r.bed||'')+'</td>'+
       '<td style="font-size:12px;color:#5d6b82" '+ce2+' data-field="movein">'+(r.movein||'')+'</td>'+
       '<td style="font-family:DM Mono,monospace" '+ce2+' data-field="rent">'+rent+'</td>'+
       '<td><input type="text" value="'+paid+'" style="width:80px;padding:4px 8px;border:1px solid #dde2ea;border-radius:5px;font-size:12px;font-family:DM Mono,monospace" onchange="ppSPUpdatePaid('+ri+',this.value)"></td>'+
       '<td style="font-family:DM Mono,monospace;color:'+(balance>0?'#a82828':'#1e6b3d')+'">'+ppSRMoney(balance)+'</td>'+
       '<td><span class="badge '+st.cls+'">'+st.label+'</span></td>'+
-      '<td style="font-size:12px;color:#a82828;min-width:120px" '+ce2+' data-field="notes">'+(r.notes||'')+'</td>'+
-      '<td>'+
-        (!r.movedOut?'<button onclick="ppSPMoveOut('+ri+')" style="opacity:0;background:#fff5f5;border:1px solid #fed7d7;color:#c53030;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;margin-right:4px;font-family:inherit" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">📦 Out</button>':'')+
-        '<button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1" onclick="ppSPDel('+ri+')">&#x2715;</button>'+
-      '</td>'+
+      '<td><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1" onclick="ppSPDel('+ri+')">&#x2715;</button></td>'+
       '</tr>';
   }).join('');
 }
@@ -8573,40 +8315,7 @@ function ppSPUpdatePaid(ri,val){
   ppSPRender();
   markUnsaved();
 }
-function ppSPMoveOut(i){
-  var name=PP_SELFPAY[i].name||'this resident';
-  var moveOutDate=prompt('Move-out date for '+name+' (MM/DD/YYYY):');
-  if(!moveOutDate) return;
-  PP_SELFPAY[i].movedOut=true;
-  PP_SELFPAY[i].moveOutDate=moveOutDate;
-  markUnsaved();
-  ppSPRender();
-  showToast('✓ '+name+' marked as moved out '+moveOutDate);
-}
-function ppSPUndoMoveOut(i){
-  if(!confirm('Undo move out for '+(PP_SELFPAY[i].name||'this resident')+'?')) return;
-  PP_SELFPAY[i].movedOut=false;
-  delete PP_SELFPAY[i].moveOutDate;
-  markUnsaved();
-  ppSPRender();
-  showToast('✓ Move out undone');
-}
-function ppSPDel(i){
-  if(!confirm('Remove this resident from '+ppSPActiveMonth+'?')) return;
-  var r=PP_SELFPAY[i];
-  if(!r) return;
-  // Remove just this month from history
-  r.history=(r.history||[]).filter(function(h){return h.month!==ppSPActiveMonth;});
-  // If no months left, remove the whole resident
-  if(r.history.length===0){
-    PP_SELFPAY.splice(i,1);
-    showToast('Resident removed');
-  } else {
-    showToast('Removed from '+ppSPActiveMonth);
-  }
-  ppSPRenderPills();
-  markUnsaved();
-}
+function ppSPDel(i){if(confirm('Remove this resident?')){PP_SELFPAY.splice(i,1);ppSPRenderPills();markUnsaved();showToast('Removed');}}
 
 // ── PP Edit Modal ──
 var ppEditType = null;
@@ -8816,7 +8525,7 @@ function ppConfirmRollover(){
           movein:r.movein||'',
           end:r.end||'',
           rate:r.rate||'',
-          notes:r.notes||'',
+          notes:'',
           windowMonths:r.windowMonths||4,
           month:ppRolloverTargetMonth,
           invoice:newInvNum,
