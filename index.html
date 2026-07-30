@@ -847,9 +847,11 @@ if (authState === 'owner' || authState === '1') {
           </div>
           <div id="ph-invoice-controls" style="display:none;gap:8px;flex-wrap:wrap">
             <button class="btn btn-green" onclick="togglePHAddForm()">+ Add Patient</button>
+            <button class="btn btn-green" onclick="togglePHQuickAddForm()" style="background:#5a9e3a;border-color:#5a9e3a">⚡ Quick Add Invoice</button>
             <button class="btn btn-navy" onclick="openPHAssignModal()">🔢 Assign invoice #s</button>
             <button class="btn btn-navy" onclick="openPHCopyModal()">📋 Next Month</button>
             <button class="btn btn-gold" onclick="openPHPrintAllModal()">🖨 Print Invoices</button>
+            <button class="btn btn-gray" onclick="exportPHInvoiceCSV()">⬇ Export CSV</button>
           </div>
         </div>
 
@@ -864,6 +866,18 @@ if (authState === 'owner' || authState === '1') {
             <div style="display:flex;gap:8px;padding-top:2px">
               <button class="btn btn-green" onclick="confirmAddPHPatient()">Add to Agreement &amp; Invoice Tracker</button>
               <button class="btn btn-gray" onclick="togglePHAddForm()">Cancel</button>
+            </div>
+          </div>
+
+          <!-- PH Quick Add Invoice-Only form -->
+          <div id="ph-quick-add-form" class="add-row-form">
+            <div class="form-field"><label>Patient name</label><input type="text" id="ph-qa-name" placeholder="Full name"></div>
+            <div class="form-field"><label>CIN</label><input type="text" id="ph-qa-cin" placeholder="CIN number"></div>
+            <div class="form-field"><label>First day</label><input type="text" id="ph-qa-first" placeholder="MM/DD/YYYY"></div>
+            <div class="form-field"><label>Last day</label><input type="text" id="ph-qa-last" placeholder="MM/DD/YYYY"></div>
+            <div style="display:flex;gap:8px;padding-top:2px">
+              <button class="btn btn-green" onclick="confirmPHQuickAdd()">Add to Invoice</button>
+              <button class="btn btn-gray" onclick="togglePHQuickAddForm()">Cancel</button>
             </div>
           </div>
 
@@ -4823,15 +4837,18 @@ function getDisplayTotal(r) {
 
   const parseDate = s => {
     if (!s) return null;
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) { const p=s.split('T')[0].split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); }
     const p = s.split('/');
     if (p.length === 3) return new Date(parseInt(p[2].length===2?'20'+p[2]:p[2]), parseInt(p[0])-1, parseInt(p[1]));
     return null;
   };
 
-  // If row has an invoice number, prefer stored dates but fall back to tracker if dates missing
+  // If row has an invoice number, use stored dates + tracker fallback regardless of agreement status
   const hasInvoice = r.invoice && /^FL-\d+$/.test(r.invoice);
-  if (hasInvoice && (r.firstDay || r.lastDay)) {
-    const d1 = parseDate(r.firstDay), d2 = parseDate(r.lastDay);
+  if (hasInvoice) {
+    const fd = r.firstDay || getAutoFirstDay(r.name, r.cin, r.month);
+    const ld = r.lastDay || getLastDayFromAgreement(r.name, r.cin, r.month) || getAutoLastDay(r.name, r.cin, r.month);
+    const d1 = parseDate(fd), d2 = parseDate(ld);
     const mainDays = (d1 && d2) ? Math.round((d2 - d1) / 86400000) + 1 : 0;
     const mainTotal = mainDays * rate;
     const periodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
@@ -4839,8 +4856,6 @@ function getDisplayTotal(r) {
       : (r.priorTotal || 0);
     return mainTotal + periodsTotal;
   }
-
-  // No invoice or no stored dates — calculate via agreement tracker as normal
   const { firstDay, lastDay } = getEffectiveDates(r);
   const d1 = parseDate(firstDay), d2 = parseDate(lastDay);
   const mainDays = (d1 && d2) ? Math.round((d2 - d1) / 86400000) + 1 : 0;
@@ -4939,7 +4954,7 @@ function renderInvoices() {
       </label>
     </td>
     <td class="cin-cell"><span contenteditable="true" onblur="saveInvCin(${INVOICE_DATA_ARR.indexOf(r)},this.textContent)" onpaste="event.preventDefault();var t=event.clipboardData.getData('text/plain').trim();document.execCommand('insertText',false,t);this.style.fontFamily='\'DM Mono\',monospace'" onfocus="this.style.background='#e8f0fe';suggestCIN(this,(INVOICE_DATA_ARR[${INVOICE_DATA_ARR.indexOf(r)}]||{}).name||'',this.textContent.trim(),'FL')" style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);cursor:text" onmouseover="this.style.background='#e8f0fe'" onmouseout="if(document.activeElement!==this)this.style.background=''">${r.cin||''}</span></td>
-    <td style="font-size:12px;color:var(--muted)">${(()=>{ const s=getAgreementStatus(r.name,r.cin,r.month); return (s==='active'||s==='expiring') ? (r.firstDay ? formatDate(r.firstDay) : (getAutoFirstDay(r.name,r.cin,r.month)||'—')) : '—'; })()}</td>
+    <td style="font-size:12px;color:var(--muted)">${(()=>{ if(isFLMonthLocked(r.month)&&(!r.invoice||!/^FL-\d+$/.test(r.invoice))&&r.agreement!=='MANUAL') return '—'; const s=getAgreementStatus(r.name,r.cin,r.month); return (s==='active'||s==='expiring') ? (r.firstDay ? formatDate(r.firstDay) : (getAutoFirstDay(r.name,r.cin,r.month)||'—')) : '—'; })()}</td>
     <td style="font-size:12px;color:var(--muted)">
       <span contenteditable="true"
         onblur="saveLastDay(${INVOICE_DATA_ARR.indexOf(r)}, this.textContent)"
@@ -4947,7 +4962,7 @@ function renderInvoices() {
         onmouseover="this.style.background='#f0f7ed'"
         onmouseout="if(document.activeElement!==this)this.style.background=''"
         onfocus="this.style.background='#f0f7ed'"
-      >${(()=>{const s=getAgreementStatus(r.name,r.cin,r.month); if(s!=='active'&&s!=='expiring') return '—'; if(r.lastDay) return formatDate(r.lastDay); const ag=getLastDayFromAgreement(r.name,r.cin,r.month); return ag ? ag : (getAutoLastDay(r.name,r.cin,r.month) || '—');})()}</span>
+      >${(()=>{ if(isFLMonthLocked(r.month)&&(!r.invoice||!/^FL-\d+$/.test(r.invoice))&&r.agreement!=='MANUAL') return '—'; const s=getAgreementStatus(r.name,r.cin,r.month); if(s!=='active'&&s!=='expiring') return '—'; if(r.lastDay) return formatDate(r.lastDay); const ag=getLastDayFromAgreement(r.name,r.cin,r.month); return ag ? ag : (getAutoLastDay(r.name,r.cin,r.month) || '—');})()}</span>
     </td>
     <td style="font-size:12px;color:var(--muted)">${r.rate?'$'+r.rate:'—'}</td>
     <td class="amount-cell">
@@ -6116,6 +6131,88 @@ function phHeaderAddClick() {
     switchPHTab('invoices');
     setTimeout(togglePHAddForm, 50);
   }
+}
+
+function exportFLInvoiceCSV() {
+  const rows = INVOICE_DATA_ARR.filter(r => r.month === activeMonth && r.name);
+  if (!rows.length) { showToast('No invoices for ' + activeMonth, 'error'); return; }
+  const headers = ['Invoice #','Patient Name','CIN','First Day','Last Day','Amount'];
+  const lines = [headers.join(',')];
+  rows.forEach(r => {
+    const amt = getDisplayTotal(r);
+    const fd = r.firstDay || getAutoFirstDay(r.name,r.cin,r.month) || '';
+    const ld = r.lastDay || getLastDayFromAgreement(r.name,r.cin,r.month) || getAutoLastDay(r.name,r.cin,r.month) || '';
+    lines.push([r.invoice||'','"'+(r.name||'').replace(/"/g,'""')+'"',r.cin||'',fd,ld,amt>0?amt:''].join(','));
+  });
+  const total = rows.reduce((s,r) => s+getDisplayTotal(r), 0);
+  lines.push(',,,,Total,'+total);
+  const blob = new Blob([lines.join('\n')],{type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'FL_Invoices_'+activeMonth+'_2026.csv'; a.click();
+  showToast('✓ Exported FL '+activeMonth+' invoices');
+}
+
+function exportPHInvoiceCSV() {
+  const rows = PH_INVOICE_DATA_ARR.filter(r => r.month === phActiveMonth && r.name);
+  if (!rows.length) { showToast('No PH invoices for ' + phActiveMonth, 'error'); return; }
+  const headers = ['Invoice #','Patient Name','CIN','First Day','Last Day','Amount'];
+  const lines = [headers.join(',')];
+  rows.forEach(r => {
+    const amt = getPHDisplayTotal(r);
+    const eff = getPHEffectiveDates(r);
+    const fd = r.firstDay || eff.firstDay || '';
+    const ld = r.lastDay || getLastDayFromPH(r.name,r.cin,r.month) || eff.lastDay || '';
+    lines.push([r.invoice||'','"'+(r.name||'').replace(/"/g,'""')+'"',r.cin||'',fd,ld,amt>0?amt:''].join(','));
+  });
+  const total = rows.reduce((s,r) => s+getPHDisplayTotal(r), 0);
+  lines.push(',,,,Total,'+total);
+  const blob = new Blob([lines.join('\n')],{type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'PH_Invoices_'+phActiveMonth+'_2026.csv'; a.click();
+  showToast('✓ Exported PH '+phActiveMonth+' invoices');
+}
+
+function togglePHQuickAddForm() {
+  const form = document.getElementById('ph-quick-add-form');
+  if (!form) return;
+  form.classList.toggle('visible');
+  if (form.classList.contains('visible')) {
+    const other = document.getElementById('ph-add-form');
+    if (other) other.classList.remove('visible');
+    setTimeout(() => { const el = document.getElementById('ph-qa-name'); if(el) el.focus(); }, 50);
+  }
+}
+
+function confirmPHQuickAdd() {
+  const name = (document.getElementById('ph-qa-name').value || '').trim();
+  if (!name) { showToast('Patient name is required', 'error'); return; }
+  const cin   = (document.getElementById('ph-qa-cin').value   || '').trim();
+  const first = (document.getElementById('ph-qa-first').value || '').trim();
+  const last  = (document.getElementById('ph-qa-last').value  || '').trim();
+
+  PH_INVOICE_DATA_ARR.push({
+    month:      phActiveMonth,
+    invoice:    '',
+    name:       name,
+    cin:        cin,
+    agreement:  'MANUAL',
+    firstDay:   first,
+    lastDay:    last,
+    rate:       99,
+    total:      0,
+    payment:    '',
+    priorStart: '', priorEnd: '', priorDays: 0, priorTotal: 0
+  });
+
+  ['ph-qa-name','ph-qa-cin','ph-qa-first','ph-qa-last'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const form = document.getElementById('ph-quick-add-form');
+  if (form) form.classList.remove('visible');
+
+  markUnsaved(); syncNow();
+  showToast('\u2713 ' + name + ' added to ' + phActiveMonth + ' PH invoices');
+  renderPH();
 }
 
 function togglePHAddForm() {
