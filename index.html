@@ -4812,15 +4812,12 @@ function isCoveredByLaterPeriods(r, arr) {
 }
 
 function getDisplayTotal(r) {
-  if (isBackdatedLocked(r)) return 0;
-  if (r.locked) return 0;
+  const hasInvoiceNum = r.invoice && /^FL-\d+$/.test(r.invoice);
+  if (isBackdatedLocked(r) && !hasInvoiceNum) return 0;
+  if (r.locked && !hasInvoiceNum) return 0;
 
-  // If month is locked, only show amount for rows with explicit invoice or billing periods
-  if (r.month && isFLMonthLocked(r.month)) {
-    const hasInvoice = r.invoice && /^FL-\d+$/.test(r.invoice);
-    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
-    if (!hasInvoice && !hasPeriods && r.agreement !== 'MANUAL') return 0;
-  }
+  // If month is locked, ONLY rows with a valid invoice number show an amount
+  if (r.month && isFLMonthLocked(r.month) && !hasInvoiceNum) return 0;
 
   if (!r.invoice && isCoveredByLaterPeriods(r, INVOICE_DATA_ARR)) return 0;
   const rate = r.rate || 99;
@@ -7120,15 +7117,12 @@ function getPHEffectiveDates(r) {
 }
 
 function getPHDisplayTotal(r) {
-  if (isBackdatedLocked(r)) return 0;
-  if (r.locked) return 0;
+  const hasPHInvoiceNum = r.invoice && /^FL-\d+PH$/.test(r.invoice);
+  if (isBackdatedLocked(r) && !hasPHInvoiceNum) return 0;
+  if (r.locked && !hasPHInvoiceNum) return 0;
 
-  // If month is locked, only show amount for rows with explicit invoice or billing periods
-  if (r.month && isPHMonthLocked(r.month)) {
-    const hasInvoice = r.invoice && /^FL-\d+PH$/.test(r.invoice);
-    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
-    if (!hasInvoice && !hasPeriods && r.agreement !== 'MANUAL') return 0;
-  }
+  // If month is locked, ONLY rows with a valid invoice number show an amount
+  if (r.month && isPHMonthLocked(r.month) && !hasPHInvoiceNum) return 0;
 
   if (!r.invoice && isCoveredByLaterPeriods(r, PH_INVOICE_DATA_ARR)) return 0;
   const rate = r.rate || 99;
