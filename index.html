@@ -1728,6 +1728,40 @@ let currentAgTab = 'active';
 const _months=['January','February','March','April','May','June','July','August','September','October','November','December'];
 let activeMonth = _months[new Date().getMonth()];
 let phActiveMonth = _months[new Date().getMonth()];
+let FL_LOCKED_MONTHS = {};
+let PH_LOCKED_MONTHS = {};
+
+function isFLMonthLocked(month) { return !!(FL_LOCKED_MONTHS && FL_LOCKED_MONTHS[month]); }
+function isPHMonthLocked(month) { return !!(PH_LOCKED_MONTHS && PH_LOCKED_MONTHS[month]); }
+
+function lockFLMonth(month) {
+  FL_LOCKED_MONTHS[month] = true;
+  INVOICE_DATA_ARR.forEach(r => {
+    if (r.month !== month) return;
+    if (!r.invoice || !/^FL-\d+$/.test(r.invoice)) r.locked = true;
+  });
+  markUnsaved(); syncNow(); renderPills(); renderInvoices(); renderStats();
+}
+function lockPHMonth(month) {
+  PH_LOCKED_MONTHS[month] = true;
+  PH_INVOICE_DATA_ARR.forEach(r => {
+    if (r.month !== month) return;
+    if (!r.invoice || !/^FL-\d+PH$/.test(r.invoice)) r.locked = true;
+  });
+  markUnsaved(); syncNow(); renderPH();
+}
+function unlockFLMonth(month) {
+  delete FL_LOCKED_MONTHS[month];
+  INVOICE_DATA_ARR.forEach(r => { if (r.month === month) delete r.locked; });
+  markUnsaved(); syncNow(); renderPills(); renderInvoices(); renderStats();
+  showToast('🔓 ' + month + ' unlocked');
+}
+function unlockPHMonth(month) {
+  delete PH_LOCKED_MONTHS[month];
+  PH_INVOICE_DATA_ARR.forEach(r => { if (r.month === month) delete r.locked; });
+  markUnsaved(); syncNow(); renderPH();
+  showToast('🔓 PH ' + month + ' unlocked');
+}
 let phInnerTab = 'agreements';
 let BAKED_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKuF93LjSLOvS97GjKAoUCsr4fA8JYfP0FLSiUFFv_BHRwtcIMgh8BhmFJlGPZjK6kRQ/exec';
 let _copyEligible = [];
@@ -1944,6 +1978,8 @@ function loadFromSheet(onDone) {
       if (data.ph_eligibility && data.ph_eligibility.length>0) PH_ELIGIBILITY_DATA = data.ph_eligibility;
       if (data.ph_tracker && data.ph_tracker.length>0) PH_TRACKER = data.ph_tracker;
       if (data.ph_payments) PH_PAYMENTS = data.ph_payments;
+      if (data.fl_locked_months) FL_LOCKED_MONTHS = data.fl_locked_months;
+      if (data.ph_locked_months) PH_LOCKED_MONTHS = data.ph_locked_months;
       if (data.pp_beds && data.pp_beds.length>0) PP_BEDS = data.pp_beds;
       if (data.pp_selfpay && data.pp_selfpay.length>0) PP_SELFPAY = data.pp_selfpay;
       if (data.pp_sr_invoices && data.pp_sr_invoices.length>0) PP_SR_INVOICES = data.pp_sr_invoices;
@@ -1991,7 +2027,7 @@ function syncNow() {
   fetch(scriptURL, {
     method:'POST', mode:'no-cors',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS, pp_facilities:PP_FACILITIES})
+    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS, pp_facilities:PP_FACILITIES, fl_locked_months:FL_LOCKED_MONTHS, ph_locked_months:PH_LOCKED_MONTHS})
   })
   .then(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; markSaved(new Date().toISOString()); showToast('Saved to Google Sheets ✓'); })
   .catch(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; showToast('Sync failed','error'); });
@@ -2381,9 +2417,13 @@ function monthStats(month) {
   return { total: allTotal, count: invoiced.length, billed: billed.length, billedTotal, diff: allTotal - billedTotal };
 }
 function renderPills() {
-  document.getElementById('month-pills').innerHTML = MONTHS.map(m=>
-    `<button class="pill${m===activeMonth?' active':''}" onclick="selectMonth('${m}')">${m}</button>`
-  ).join('');
+  document.getElementById('month-pills').innerHTML = MONTHS.map(m => {
+    const locked = isFLMonthLocked(m);
+    const badge = locked
+      ? `<span onclick="if(confirm('Unlock ${m}? This will allow agreement changes to affect invoices.'))unlockFLMonth('${m}')" title="Click to unlock ${m}" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔒</span>`
+      : '';
+    return `<span style="position:relative;display:inline-block"><button class="pill${m===activeMonth?' active':''}" onclick="selectMonth('${m}')">${m}</button>${badge}</span>`;
+  }).join('');
 }
 function selectMonth(m) {
   activeMonth=m; renderPills(); renderStats(); renderInvoices();
@@ -2882,8 +2922,8 @@ function confirmAssign() {
   });
   closeAssignModal();
   if (count > 0) {
-    markUnsaved();
-    showToast(`✓ Assigned ${count} invoice number${count > 1 ? 's' : ''}`);
+    lockFLMonth(activeMonth);
+    showToast(`✓ Assigned ${count} invoice number${count > 1 ? 's' : ''} — ${activeMonth} locked`);
     updateNextInvoice();
     renderStats();
     renderInvoices();
@@ -5754,7 +5794,11 @@ function renderPH() {
   if (pillsEl) {
     pillsEl.innerHTML = allMonths.map(m => {
       const isActive = m === phActiveMonth;
-      return `<button class="pill${isActive?' active':''}" onclick="phActiveMonth='${m}';renderPH()">${m}</button>`;
+      const locked = isPHMonthLocked(m);
+      const badge = locked
+        ? `<span onclick="if(confirm('Unlock PH ${m}?'))unlockPHMonth('${m}')" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔒</span>`
+        : '';
+      return `<span style="position:relative;display:inline-block"><button class="pill${isActive?' active':''}" onclick="phActiveMonth='${m}';renderPH()">${m}</button>${badge}</span>`;
     }).join('');
   }
 
@@ -6194,7 +6238,7 @@ function confirmPHAssign() {
     }
   });
   closePHAssignModal();
-  if (count>0) { markUnsaved(); autoSyncPHEligibility(); showToast('\u2713 Assigned '+count+' invoice number'+(count>1?'s':'')); renderPH(); }
+  if (count>0) { lockPHMonth(phActiveMonth); updateNextInvoice(); showToast('\u2713 Assigned '+count+' invoice number'+(count>1?'s':'')+' — PH '+phActiveMonth+' locked'); renderPH(); }
 }
 
 // ── PH Copy to Next Month ─────────────────────────────────────────────────────
