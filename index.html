@@ -1034,6 +1034,19 @@ if (authState === 'owner' || authState === '1') {
 
 <!-- PH Copy Modal -->
 <div id="ph-copy-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center">
+
+<!-- Self Pay Copy to Next Month Modal -->
+<div id="pp-sp-copy-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:480px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px">Copy to Next Month</div>
+    <div style="font-size:12px;color:#6b7589;margin-bottom:12px">Select self-pay residents to copy to <strong id="pp-sp-copy-next-month"></strong></div>
+    <div id="pp-sp-copy-list" style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-gray" onclick="closePPSPCopyModal()">Cancel</button>
+      <button class="btn btn-green" onclick="confirmPPSPCopy()">Copy</button>
+    </div>
+  </div>
+</div>
   <div style="background:#fff;border-radius:16px;padding:24px;width:480px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
     <div style="font-size:15px;font-weight:600;margin-bottom:4px">Copy to Next Month</div>
     <div style="font-size:12px;color:#6b7589;margin-bottom:12px">Select Phoenix Haven patients to copy to <strong id="ph-copy-next-month"></strong></div>
@@ -1090,7 +1103,7 @@ if (authState === 'owner' || authState === '1') {
         <!-- ── SAC RECOVERY VIEW ── -->
         <div id="pp-src-facility">
           <!-- Expiry alert banner -->
-          <div id="pp-expiry-alert" style="display:none;margin-bottom:12px"></div>
+          
 
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px">
             <div class="month-pills" id="pp-sr-pills" style="margin-bottom:0;flex:1"></div>
@@ -1145,6 +1158,7 @@ if (authState === 'owner' || authState === '1') {
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px">
             <div class="month-pills" id="pp-sp-pills" style="margin-bottom:0;flex:1"></div>
             <button class="btn btn-green" onclick="ppSPToggleAdd()">+ Add resident</button>
+            <button class="btn btn-navy" onclick="openPPSPCopyModal()">📋 Next Month</button>
           </div>
 
           <div id="pp-sp-add-form" class="add-row-form" style="margin-top:10px">
@@ -4812,12 +4826,15 @@ function isCoveredByLaterPeriods(r, arr) {
 }
 
 function getDisplayTotal(r) {
-  const hasInvoiceNum = r.invoice && /^FL-\d+$/.test(r.invoice);
-  if (isBackdatedLocked(r) && !hasInvoiceNum) return 0;
-  if (r.locked && !hasInvoiceNum) return 0;
+  if (isBackdatedLocked(r)) return 0;
+  if (r.locked) return 0;
 
-  // If month is locked, ONLY rows with a valid invoice number show an amount
-  if (r.month && isFLMonthLocked(r.month) && !hasInvoiceNum) return 0;
+  // If month is locked, only show amount for rows with explicit invoice or billing periods
+  if (r.month && isFLMonthLocked(r.month)) {
+    const hasInvoice = r.invoice && /^FL-\d+$/.test(r.invoice);
+    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
+    if (!hasInvoice && !hasPeriods && r.agreement !== 'MANUAL') return 0;
+  }
 
   if (!r.invoice && isCoveredByLaterPeriods(r, INVOICE_DATA_ARR)) return 0;
   const rate = r.rate || 99;
@@ -7117,12 +7134,15 @@ function getPHEffectiveDates(r) {
 }
 
 function getPHDisplayTotal(r) {
-  const hasPHInvoiceNum = r.invoice && /^FL-\d+PH$/.test(r.invoice);
-  if (isBackdatedLocked(r) && !hasPHInvoiceNum) return 0;
-  if (r.locked && !hasPHInvoiceNum) return 0;
+  if (isBackdatedLocked(r)) return 0;
+  if (r.locked) return 0;
 
-  // If month is locked, ONLY rows with a valid invoice number show an amount
-  if (r.month && isPHMonthLocked(r.month) && !hasPHInvoiceNum) return 0;
+  // If month is locked, only show amount for rows with explicit invoice or billing periods
+  if (r.month && isPHMonthLocked(r.month)) {
+    const hasInvoice = r.invoice && /^FL-\d+PH$/.test(r.invoice);
+    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
+    if (!hasInvoice && !hasPeriods && r.agreement !== 'MANUAL') return 0;
+  }
 
   if (!r.invoice && isCoveredByLaterPeriods(r, PH_INVOICE_DATA_ARR)) return 0;
   const rate = r.rate || 99;
@@ -7900,33 +7920,7 @@ function ppCheckExpiry(){
       badge.style.display='none';
     }
   }
-  // Update alert banner
-  var alert=document.getElementById('pp-expiry-alert');
-  if(!alert) return;
-  if(total===0){alert.style.display='none';return;}
-  var html='';
-  if(urgent.length){
-    html+='<div style="background:#fff5f5;border:1px solid #fc8181;border-radius:8px;padding:12px 16px;margin-bottom:8px">'+
-      '<div style="font-weight:600;color:#c53030;font-size:13px;margin-bottom:6px">🚨 '+urgent.length+' agreement'+(urgent.length>1?'s':'')+' expiring within 14 days — action required</div>'+
-      urgent.map(function(b){
-        var dl=ppDaysLeft(b.end);
-        return '<div style="font-size:12px;color:#742a2a;padding:3px 0">'+
-          '<strong>'+(b.name||'')+'</strong> · '+(b.facility||'')+(b.house?' · '+(b.house):'')+'  —  expires <strong>'+(b.end||'')+'</strong> ('+dl+' day'+(dl===1?'':'s')+' left)</div>';
-      }).join('')+
-    '</div>';
-  }
-  if(warn.length){
-    html+='<div style="background:#fffaf0;border:1px solid #f6ad55;border-radius:8px;padding:12px 16px">'+
-      '<div style="font-weight:600;color:#c05621;font-size:13px;margin-bottom:6px">⚠️ '+warn.length+' agreement'+(warn.length>1?'s':'')+' expiring within 30 days</div>'+
-      warn.map(function(b){
-        var dl=ppDaysLeft(b.end);
-        return '<div style="font-size:12px;color:#7b341e;padding:3px 0">'+
-          '<strong>'+(b.name||'')+'</strong> · '+(b.facility||'')+(b.house?' · '+(b.house):'')+'  —  expires <strong>'+(b.end||'')+'</strong> ('+dl+' day'+(dl===1?'':'s')+' left)</div>';
-      }).join('')+
-    '</div>';
-  }
-  alert.innerHTML=html;
-  alert.style.display='block';
+  // Banner removed — expiry indicated by red dot on patient name in facility pay rows
 }
 function ppInit(){
   // Pre-populate default months into SR and SP if not already present
@@ -8082,7 +8076,16 @@ function ppSRRender(){
       var r=item.r; var i=item.i;
       return '<tr data-idx="'+i+'">'+
         '<td style="font-family:DM Mono,monospace;font-size:12px;font-weight:600" '+ce+' data-field="invoice">'+(r.invoice||'')+'</td>'+
-        '<td style="font-weight:500;color:#1a202c" '+ce+' data-field="name">'+(r.name||'')+'</td>'+
+        (function(){
+          var dl=ppDaysLeft(r.end);
+          var dot='';
+          if(!r.monthToMonth&&dl!==null&&dl<=30){
+            var color=dl<=14?'#c53030':'#c05621';
+            var tip=dl<=14?'Expiring in '+dl+' day'+(dl===1?'':'s')+'!':'Expiring in '+dl+' days';
+            dot='<span title="'+tip+'" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+color+';margin-right:5px;flex-shrink:0;vertical-align:middle"></span>';
+          }
+          return '<td style="font-weight:500;color:#1a202c"><div style="display:flex;align-items:center">'+dot+'<span '+ce+' data-field="name">'+(r.name||'')+'</span></div></td>';
+        })()+
         '<td style="font-size:12px;color:#185FA5;font-weight:500" '+ce+' data-field="facility">'+(r.facility||'')+'</td>'+
         '<td style="color:#5d6b82" '+ce+' data-field="house">'+(r.house||'')+'</td>'+
         '<td style="font-size:12px;color:#5d6b82" '+ce+' data-field="movein">'+(r.movein||'')+'</td>'+
@@ -8092,7 +8095,9 @@ function ppSRRender(){
         '<td style="white-space:nowrap">'+ppSRWindowDots(r)+'</td>'+
         '<td style="font-size:12px;color:#5d6b82;min-width:100px" '+ce+' data-field="notes">'+(r.notes||'')+'</td>'+
         '<td style="white-space:nowrap">'+
-          '<button onclick="ppSRPrintOne('+i+')" style="background:#e8f4fd;border:1px solid #bee3f8;color:#2b6cb0;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;margin-right:4px;font-family:inherit">Invoice</button>'+
+          (r.paid
+            ? '<span onclick="ppSRTogglePaid('+i+')" title="Click to mark unpaid" style="cursor:pointer;display:inline-block;background:#f0f7ed;color:#1e6b3d;border:1px solid #b6dba8;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:600;margin-right:4px">✓ Paid</span>'
+            : '<span onclick="ppSRTogglePaid('+i+')" title="Click to mark paid" style="cursor:pointer;display:inline-block;background:none;border:1px dashed #cbd5e0;border-radius:6px;padding:3px 10px;font-size:11px;color:#cbd5e0;margin-right:4px">Paid</span>')+
           '<button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px;border-radius:4px" onmouseover="this.style.opacity=1" onclick="ppSRDel('+i+')">&#x2715;</button>'+
         '</td>'+
         '</tr>';
@@ -8109,6 +8114,10 @@ function ppSRUpdateStatus(i,val){
   ppSRRender();
   markUnsaved();
 }
+function ppSRTogglePaid(i){
+  if(PP_BEDS[i]){ PP_BEDS[i].paid=!PP_BEDS[i].paid; markUnsaved(); ppSRRender(); }
+}
+
 function ppSRDel(i){
   if(confirm('Remove this patient?')){PP_BEDS.splice(i,1);ppSRRenderPills();markUnsaved();showToast('Removed');}
 }
@@ -8294,6 +8303,54 @@ function ppSRPrintAll(){
 
 // ── SELF PAY ──
 function ppSPToggleAdd(){var f=document.getElementById('pp-sp-add-form');if(f)f.classList.toggle('visible');}
+
+function openPPSPCopyModal(){
+  var curIdx=PP_SR_MONTH_ORDER.indexOf(ppSPActiveMonth);
+  if(curIdx===-1||curIdx>=PP_SR_MONTH_ORDER.length-1){showToast('No next month available');return;}
+  var nextMonth=PP_SR_MONTH_ORDER[curIdx+1];
+  document.getElementById('pp-sp-copy-next-month').textContent=nextMonth;
+  var seen={}, unique=[];
+  PP_SELFPAY.forEach(function(r){
+    var key=r.name||'';
+    if(key&&!seen[key]){seen[key]=true;unique.push(r);}
+  });
+  var list=document.getElementById('pp-sp-copy-list');
+  list._residents=unique;
+  list._nextMonth=nextMonth;
+  list.innerHTML=unique.map(function(r,i){
+    return '<label class="copy-patient-item" for="ppsp_cp_'+i+'">'
+      +'<input type="checkbox" id="ppsp_cp_'+i+'" checked style="width:15px;height:15px;accent-color:#3d7a2e;cursor:pointer;flex-shrink:0">'
+      +'<div><div style="font-size:13px;font-weight:500;color:var(--text)">'+r.name+'</div>'
+      +(r.notes?'<div style="font-size:10px;color:#a82828;margin-top:1px">'+r.notes+'</div>':'')
+      +(r.bed?'<div style="font-size:11px;color:var(--muted)">'+r.bed+'</div>':'')
+      +'</div></label>';
+  }).join('');
+  document.getElementById('pp-sp-copy-modal').style.display='flex';
+}
+function closePPSPCopyModal(){document.getElementById('pp-sp-copy-modal').style.display='none';}
+function confirmPPSPCopy(){
+  var list=document.getElementById('pp-sp-copy-list');
+  var residents=list._residents;
+  var nextMonth=list._nextMonth;
+  var count=0;
+  residents.forEach(function(r,i){
+    var cb=document.getElementById('ppsp_cp_'+i);
+    if(cb&&cb.checked){
+      var exists=PP_SELFPAY.some(function(x){return x.name===r.name&&x.month===nextMonth;});
+      if(!exists){
+        PP_SELFPAY.unshift({
+          name:r.name, bed:r.bed||'', movein:r.movein||'',
+          rent:r.rent||0, deposit:r.deposit||0,
+          notes:r.notes||'',
+          history:[{month:nextMonth,paid:0}], month:nextMonth
+        });
+        count++;
+      }
+    }
+  });
+  closePPSPCopyModal();
+  if(count>0){ppSPActiveMonth=nextMonth;markUnsaved();ppSPRenderPills();showToast('✓ Copied '+count+' resident'+(count>1?'s':'')+' to '+nextMonth);}
+}
 
 function ppSPGetMonths(){
   var months=[].concat(PP_DEFAULT_MONTHS);
@@ -8660,7 +8717,7 @@ function ppConfirmRollover(){
           movein:r.movein||'',
           end:r.end||'',
           rate:r.rate||'',
-          notes:'',
+          notes:r.notes||'',
           windowMonths:r.windowMonths||4,
           month:ppRolloverTargetMonth,
           invoice:newInvNum,
