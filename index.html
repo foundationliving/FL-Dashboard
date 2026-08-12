@@ -1766,7 +1766,9 @@ function lockFLMonth(month) {
   FL_LOCKED_MONTHS[month] = true;
   INVOICE_DATA_ARR.forEach(r => {
     if (r.month !== month) return;
-    if (!r.invoice || !/^FL-\d+$/.test(r.invoice)) r.locked = true;
+    const hasInvoice = r.invoice && /^FL-\d+$/.test(r.invoice);
+    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
+    if (!hasInvoice && !hasPeriods && r.agreement !== 'MANUAL') r.locked = true;
   });
   markUnsaved(); syncNow(); renderPills(); renderInvoices(); renderStats();
 }
@@ -1774,7 +1776,10 @@ function lockPHMonth(month) {
   PH_LOCKED_MONTHS[month] = true;
   PH_INVOICE_DATA_ARR.forEach(r => {
     if (r.month !== month) return;
-    if (!r.invoice || !/^FL-\d+PH$/.test(r.invoice)) r.locked = true;
+    const hasInvoice = r.invoice && /^FL-\d+PH$/.test(r.invoice);
+    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || (r.priorStart && r.priorStart !== '') || (r.priorDays && r.priorDays > 0);
+    const hasAmount = getPHDisplayTotal(r) > 0;
+    if (!hasInvoice && !hasPeriods && !hasAmount && r.agreement !== 'MANUAL') r.locked = true;
   });
   markUnsaved(); syncNow(); renderPH();
 }
@@ -4042,9 +4047,28 @@ function printReferral() {
 }
 
 // Restore page after printing — stay on referral tab
+let _phPrintQueue = [];
+
+function _openNextPHInvoice() {
+  if (!_phPrintQueue || _phPrintQueue.length === 0) return;
+  const idx = _phPrintQueue.shift();
+  openPHInvoice(idx);
+}
+
 window.addEventListener('afterprint', function() {
-  switchAppTab('referral');
+  if (_phPrintQueue && _phPrintQueue.length > 0) {
+    setTimeout(_openNextPHInvoice, 150);
+  }
 });
+
+function closeInvoice(){
+  document.getElementById('invoice-overlay').style.display='none';
+  const badge = document.getElementById('printed-badge');
+  if (badge) badge.parentNode.removeChild(badge);
+  if (_phPrintQueue && _phPrintQueue.length > 0) {
+    setTimeout(_openNextPHInvoice, 150);
+  }
+}
 
 function emailReferral() {
   const name = document.getElementById('mem-name')?.value || '';
@@ -4550,6 +4574,24 @@ function saveInvoiceNote(idx, val) {
   INVOICE_DATA_ARR[idx].note = val.trim();
   markUnsaved();
 }
+function setStayStatus(idx, status) {
+  INVOICE_DATA_ARR[idx].stayStatus = status;
+  if (status === 'full') INVOICE_DATA_ARR[idx].stayNote = '';
+  markUnsaved(); renderInvoices();
+}
+function saveStayNote(idx, val) {
+  INVOICE_DATA_ARR[idx].stayNote = val.trim();
+  markUnsaved();
+}
+function setPHStayStatus(idx, status) {
+  PH_INVOICE_DATA_ARR[idx].stayStatus = status;
+  if (status === 'full') PH_INVOICE_DATA_ARR[idx].stayNote = '';
+  markUnsaved(); renderPHInvoices();
+}
+function savePHStayNote(idx, val) {
+  PH_INVOICE_DATA_ARR[idx].stayNote = val.trim();
+  markUnsaved();
+}
 
 function saveActualPaid(idx, val) {
   const clean = val.replace(/[$,\s]/g, '').trim();
@@ -4962,6 +5004,13 @@ function renderInvoices() {
         style="font-size:10px;color:#a82828;outline:none;min-width:20px;cursor:text;margin-top:1px;margin-left:14px;line-height:1.2"
         title="Click to add note"
       >${r.note||''}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:3px;margin-left:14px">
+        ${r.stayStatus==='partial'
+          ? `<span onclick="setStayStatus(${INVOICE_DATA_ARR.indexOf(r)},'full')" style="font-size:10px;color:#c05621;background:#fff8f0;border:1px solid #f6ad55;border-radius:4px;padding:1px 7px;cursor:pointer;font-weight:500">Partial Stay</span>
+             <input type="text" value="${r.stayNote||''}" placeholder="reason..." onblur="saveStayNote(${INVOICE_DATA_ARR.indexOf(r)},this.value)" style="font-size:10px;border:none;border-bottom:1px solid #e2e8f0;outline:none;width:100px;padding:1px 2px;font-family:inherit;color:#555">`
+          : `<span onclick="setStayStatus(${INVOICE_DATA_ARR.indexOf(r)},'partial')" style="font-size:10px;color:#94a3b8;cursor:pointer" title="Click to mark partial stay">Full Stay</span>`
+        }
+      </div>
       <label class="mo-check ${r.movedOut?'mo-checked':''}" onclick="event.stopPropagation()">
         <input type="checkbox" ${r.movedOut?'checked':''} onchange="toggleMovedOut(${INVOICE_DATA_ARR.indexOf(r)},this)">
         <span>moved out</span>
@@ -5373,6 +5422,12 @@ function openInvoice(dataIdx) {
       '<tr class="total-row"><td colspan="4" style="text-align:right;padding-right:16px">Total due</td><td style="font-size:12px">$' + grandTotal.toLocaleString() + '.00</td></tr>' +
       '</tbody></table>' +
       '<div class="inv-notes"><div class="inv-notes-label">Notes / Terms</div>Services provided: Short-term post-hospitalization housing<br>Payment due within 30 days of invoice date</div>' +
+      '<div style="margin-top:14px;border:1px solid #e2e8f0;border-radius:6px;padding:12px 16px;font-size:11px;color:#1a202c">' +
+        '<div style="font-weight:600;margin-bottom:10px;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#4a5568">Resident Stay Attestation</div>' +
+        '<label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer"><input type="checkbox" ' + (r.stayStatus!=='partial'?'checked':'' ) + ' onclick="this.setAttribute(\'checked\',this.checked)" style="width:14px;height:14px;cursor:pointer"> <strong>Full Stay</strong> — Resident stayed in the home the full billing period</label>' +
+        '<label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;cursor:pointer"><input type="checkbox" ' + (r.stayStatus==='partial'?'checked':'') + ' onclick="this.setAttribute(\'checked\',this.checked)" style="width:14px;height:14px;cursor:pointer;flex-shrink:0;margin-top:1px"> <span><strong>Partial Stay</strong> — Resident was temporarily absent<br><span style="color:#718096">' + (r.stayNote ? r.stayNote : 'Reason: ________________________________') + '</span></span></label>' +
+        '<div style="margin-bottom:0;color:#718096">Additional notes: <span contenteditable="true" style="border-bottom:1px solid #cbd5e0;display:inline-block;min-width:300px;outline:none;padding:0 4px;color:#1a202c">' + (r.note ? r.note : '') + '</span></div>' +
+      '</div>' +
       '<div class="inv-footer">Please send payment to: Foundation Living · 531 Eureka Avenue, Lodi CA 95240</div>';
     const ov = document.getElementById('invoice-overlay');
     // Move to body to escape any parent with display:none
@@ -5401,11 +5456,6 @@ function safeParseDate(d) {
 function fmtDate(d){if(!d)return '—';var x=safeParseDate(d);if(isNaN(x))return d;return(x.getMonth()+1)+'/'+x.getDate()+'/'+String(x.getFullYear()).slice(2);}
 function daysBetween(s,e){var a=safeParseDate(s),b=safeParseDate(e);if(isNaN(a)||isNaN(b))return '—';return Math.round((b-a)/86400000)+1;}
 function addDays(d,n){var x=safeParseDate(d);if(isNaN(x))return '—';x.setDate(x.getDate()+n);return(x.getMonth()+1)+'/'+x.getDate()+'/'+x.getFullYear();}
-function closeInvoice(){
-  document.getElementById('invoice-overlay').style.display='none';
-  const badge = document.getElementById('printed-badge');
-  if (badge) badge.parentNode.removeChild(badge);
-}
 
 // ── Global error trap (debug) ─────────────────────────────────────────────────
 window.onerror = function(msg, src, line, col, err) {
@@ -6041,6 +6091,13 @@ function renderPHInvoices() {
           style="font-size:10px;color:#a82828;outline:none;min-width:20px;cursor:text;margin-top:1px;margin-left:14px"
           title="Click to add note"
         >${r.note||''}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:3px;margin-left:14px">
+          ${r.stayStatus==='partial'
+            ? `<span onclick="setPHStayStatus(${idx},'full')" style="font-size:10px;color:#c05621;background:#fff8f0;border:1px solid #f6ad55;border-radius:4px;padding:1px 7px;cursor:pointer;font-weight:500">Partial Stay</span>
+               <input type="text" value="${r.stayNote||''}" placeholder="reason..." onblur="savePHStayNote(${idx},this.value)" style="font-size:10px;border:none;border-bottom:1px solid #e2e8f0;outline:none;width:100px;padding:1px 2px;font-family:inherit;color:#555">`
+            : `<span onclick="setPHStayStatus(${idx},'partial')" style="font-size:10px;color:#94a3b8;cursor:pointer" title="Click to mark partial stay">Full Stay</span>`
+          }
+        </div>
         <label class="mo-check ${r.movedOut?'mo-checked':''}" onclick="event.stopPropagation()">
           <input type="checkbox" ${r.movedOut?'checked':''} onchange="togglePHMovedOut(${idx},this)">
           <span>moved out</span>
@@ -6312,10 +6369,12 @@ function openPHAssignModal() {
   list.style.display = 'grid';
   list.style.gridTemplateColumns = '1fr 80px 50px';
   list.innerHTML = eligible.map((r,i) => {
-    const agS = getPHAgreementStatus(r.name, r.cin);
-    const dotColor = agS==='active'?'#22c55e':agS==='expiring'?'#eab308':'#ef4444';
-    const dotGlow = agS==='active'?'rgba(34,197,94,0.6)':agS==='expiring'?'rgba(234,179,8,0.6)':'rgba(239,68,68,0.5)';
-    const amt = (agS==='active'||agS==='expiring') ? getPHDisplayTotal(r) : 0;
+    const agS = getPHAgreementStatus(r.name, r.cin, r.month);
+    const isManualPH = r.agreement === 'MANUAL';
+    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
+    const dotColor = (agS==='active'||isManualPH)?'#22c55e':agS==='expiring'?'#eab308':'#ef4444';
+    const dotGlow = (agS==='active'||isManualPH)?'rgba(34,197,94,0.6)':agS==='expiring'?'rgba(234,179,8,0.6)':'rgba(239,68,68,0.5)';
+    const amt = (agS==='active'||agS==='expiring'||isManualPH||hasPeriods) ? getPHDisplayTotal(r) : 0;
     const amtStr = amt > 0 ? '$' + amt.toLocaleString() : '—';
     const amtColor = amt > 0 ? '#1e6b3d' : '#94a3b8';
     return `
@@ -6336,6 +6395,24 @@ function openPHAssignModal() {
   document.getElementById('ph-assign-modal').style.display = 'flex';
 }
 function closePHAssignModal() { document.getElementById('ph-assign-modal').style.display='none'; }
+function snapshotInvoiceRow(r, isPH) {
+  if (!r) return;
+  try {
+    if (!r.firstDay) {
+      const f = isPH
+        ? (getPHEffectiveDates(r).firstDay || getPHAutoFirstDay(r.name, r.cin, r.month))
+        : getAutoFirstDay(r.name, r.cin, r.month);
+      if (f) r.firstDay = f;
+    }
+    if (!r.lastDay) {
+      const l = isPH
+        ? (getLastDayFromPH(r.name, r.cin, r.month) || getPHEffectiveDates(r).lastDay)
+        : (getLastDayFromAgreement(r.name, r.cin, r.month) || getAutoLastDay(r.name, r.cin, r.month));
+      if (l) r.lastDay = l;
+    }
+  } catch(e) {}
+}
+
 function confirmPHAssign() {
   const list = document.getElementById('ph-assign-list');
   const eligible = list._eligible;
@@ -6345,6 +6422,7 @@ function confirmPHAssign() {
     if (cb && cb.checked) {
       r.invoice = 'FL-' + next + 'PH';
       if (!r.payment || !r.payment.includes('\u2713')) { r.payment = ''; }
+      snapshotInvoiceRow(r, true);
       next++; count++;
     }
   });
@@ -6403,12 +6481,18 @@ function closePHPrintAllModal() { document.getElementById('ph-print-all-modal').
 function confirmPHPrintAll() {
   const list = document.getElementById('ph-print-list');
   const rows = list._rows;
-  let printed = 0;
+  _phPrintQueue = [];
   rows.forEach((r,i) => {
     const cb = document.getElementById('ph_pr_'+i);
-    if (cb && cb.checked) { const idx = PH_INVOICE_DATA_ARR.indexOf(r); openPHInvoice(idx); printed++; }
+    if (cb && cb.checked) {
+      const idx = PH_INVOICE_DATA_ARR.indexOf(r);
+      if (idx !== -1) _phPrintQueue.push(idx);
+    }
   });
   closePHPrintAllModal();
+  if (_phPrintQueue.length === 0) { showToast('No patients selected'); return; }
+  showToast('\u2713 Opening ' + _phPrintQueue.length + ' invoice' + (_phPrintQueue.length > 1 ? 's — close each to open the next' : ''));
+  _openNextPHInvoice();
 }
 
 // openPHInvoice moved to pipeline section below
@@ -7134,8 +7218,10 @@ function getPHEffectiveDates(r) {
 }
 
 function getPHDisplayTotal(r) {
-  if (isBackdatedLocked(r)) return 0;
-  if (r.locked) return 0;
+  const _hasPHPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || (r.priorStart && r.priorStart !== '') || (r.priorDays && r.priorDays > 0);
+  const _hasPHInv = r.invoice && /^FL-\d+PH$/.test(r.invoice);
+  if (isBackdatedLocked(r) && !_hasPHInv && !_hasPHPeriods) return 0;
+  if (r.locked && !_hasPHInv && !_hasPHPeriods) return 0;
 
   // If month is locked, only show amount for rows with explicit invoice or billing periods
   if (r.month && isPHMonthLocked(r.month)) {
@@ -7155,13 +7241,19 @@ function getPHDisplayTotal(r) {
     return _days*rate;
   }
 
-  // If row has an invoice number, prefer stored dates but fall back to tracker if dates missing
+  // If row has an invoice number, use stored dates + tracker fallback
   const hasPHInvoice = r.invoice && /^FL-\d+PH$/.test(r.invoice);
-  if (hasPHInvoice && (r.firstDay || r.lastDay)) {
-    const _p = s => { if (!s) return null; const p=s.split('/'); return p.length===3?new Date(parseInt(p[2].length===2?'20'+p[2]:p[2]),parseInt(p[0])-1,parseInt(p[1])):null; };
-    const _d1=_p(r.firstDay), _d2=_p(r.lastDay);
+  if (hasPHInvoice) {
+    const _p = s => {
+      if (!s) return null;
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) { const p=s.split('T')[0].split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); }
+      const p=s.split('/'); return p.length===3?new Date(parseInt(p[2].length===2?'20'+p[2]:p[2]),parseInt(p[0])-1,parseInt(p[1])):null;
+    };
+    const fd = r.firstDay || getPHAutoFirstDay(r.name, r.cin, r.month);
+    const ld = r.lastDay || getLastDayFromPH(r.name, r.cin, r.month);
+    const _d1=_p(fd), _d2=_p(ld);
     const _mainDays=(_d1&&_d2)?Math.round((_d2-_d1)/86400000)+1:0;
-    const _periodsTotal=(r.billingPeriods&&r.billingPeriods.length>0)
+    const _periodsTotal=(_hasPHPeriods&&r.billingPeriods&&r.billingPeriods.length>0)
       ?r.billingPeriods.reduce((sum,p)=>sum+daysBetweenDates(p.start,p.end)*rate,0)
       :(r.priorTotal||0);
     return (_mainDays*rate)+_periodsTotal;
@@ -7264,6 +7356,12 @@ function openPHInvoice(idx) {
       '<tr class="total-row"><td colspan="4" style="text-align:right;padding-right:16px">Total due</td><td style="font-size:12px">$' + grandTotal.toLocaleString() + '.00</td></tr>' +
       '</tbody></table>' +
       '<div class="inv-notes"><div class="inv-notes-label">Notes / Terms</div>Services provided: Short-term post-hospitalization housing<br>Payment due within 30 days of invoice date</div>' +
+      '<div style="margin-top:14px;border:1px solid #e2e8f0;border-radius:6px;padding:12px 16px;font-size:11px;color:#1a202c">' +
+        '<div style="font-weight:600;margin-bottom:10px;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#4a5568">Resident Stay Attestation</div>' +
+        '<label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer"><input type="checkbox" ' + (r.stayStatus!=='partial'?'checked':'' ) + ' onclick="this.setAttribute(\'checked\',this.checked)" style="width:14px;height:14px;cursor:pointer"> <strong>Full Stay</strong> — Resident stayed in the home the full billing period</label>' +
+        '<label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;cursor:pointer"><input type="checkbox" ' + (r.stayStatus==='partial'?'checked':'') + ' onclick="this.setAttribute(\'checked\',this.checked)" style="width:14px;height:14px;cursor:pointer;flex-shrink:0;margin-top:1px"> <span><strong>Partial Stay</strong> — Resident was temporarily absent<br><span style="color:#718096">' + (r.stayNote ? r.stayNote : 'Reason: ________________________________') + '</span></span></label>' +
+        '<div style="margin-bottom:0;color:#718096">Additional notes: <span contenteditable="true" style="border-bottom:1px solid #cbd5e0;display:inline-block;min-width:300px;outline:none;padding:0 4px;color:#1a202c">' + (r.note ? r.note : '') + '</span></div>' +
+      '</div>' +
       '<div class="inv-footer">Please send payment to: Foundation Living · 531 Eureka Avenue, Lodi CA 95240</div>';
     const ov = document.getElementById('invoice-overlay');
     document.body.appendChild(ov);
