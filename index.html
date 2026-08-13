@@ -2219,6 +2219,18 @@ function saveAgExpField(idx, val) {
   const clean = val.trim();
   const data = currentAgTab === 'active' ? TRACKER : COMPLETED;
   if (data[idx]) {
+    const patName = (data[idx]['Patient Name']||'').toLowerCase().trim();
+    const patCin = (data[idx]['CIN']||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    // Snapshot dates onto invoiced rows in locked months BEFORE changing the agreement
+    INVOICE_DATA_ARR.forEach(r => {
+      if (!isFLMonthLocked(r.month)) return;
+      if (!r.invoice || !/^FL-\d+$/.test(r.invoice)) return;
+      const rName = (r.name||'').toLowerCase().trim();
+      const rCin = (r.cin||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      if (rName !== patName && !(patCin && rCin && rCin === patCin)) return;
+      if (!r.firstDay) { const f = getAutoFirstDay(r.name, r.cin, r.month); if(f) r.firstDay = f; }
+      if (!r.lastDay) { const l = getLastDayFromAgreement(r.name, r.cin, r.month) || getAutoLastDay(r.name, r.cin, r.month); if(l) r.lastDay = l; }
+    });
     // Convert MM/DD/YYYY to YYYY-MM-DD for storage
     const parts = clean.split('/');
     if (parts.length === 3) {
@@ -4899,7 +4911,8 @@ function getDisplayTotal(r) {
     return null;
   };
 
-  // If row has an invoice number, use stored dates + tracker fallback regardless of agreement status
+  // If row has an invoice number — always calculate from stored dates + tracker fallback
+  // The lock wall above already blocks non-invoiced rows in locked months
   const hasInvoice = r.invoice && /^FL-\d+$/.test(r.invoice);
   if (hasInvoice) {
     const fd = r.firstDay || getAutoFirstDay(r.name, r.cin, r.month);
