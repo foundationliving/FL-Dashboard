@@ -63,7 +63,7 @@ body{font-family:'DM Sans',sans-serif;background:linear-gradient(160deg,#eef2f8 
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;padding:10px 12px;font-size:10.5px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:0.07em;background:linear-gradient(90deg,#d6e8f5,#ddeaf8);border-bottom:1px solid #c0d4e8;white-space:nowrap;position:sticky;top:0;z-index:10}
 #ph-inv-table th, #ph-ag-table th{background:#ede9fe !important;color:#3b1f8c !important;border-bottom:1px solid #c4b5fd !important}
-#ph-pill-phoenix.active{background:#7c5cbf !important;border-color:#9b7ebd !important;color:#ede9fe !important;box-shadow:0 3px 12px rgba(124,92,191,0.3) !important;padding:9px 24px !important;font-size:13px !important;font-weight:600 !important}
+#ph-pill-phoenix.active, #ph-pill-bedrock.active{background:#7c5cbf !important;border-color:#9b7ebd !important;color:#ede9fe !important;box-shadow:0 3px 12px rgba(124,92,191,0.3) !important;font-weight:600 !important}
 td{padding:11px 12px;border-bottom:1px solid rgba(220,228,238,0.5);color:var(--text);vertical-align:middle;transition:background 0.1s}
 tr:hover td{background:rgba(240,247,237,0.4)} tr:hover .discharge-btn{opacity:1 !important}
 .badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;letter-spacing:0.01em}
@@ -583,7 +583,7 @@ if (authState === 'owner' || authState === '1') {
   <button class="app-tab" onclick="switchAppTab('invoices');renderStats();renderInvoices();updateNextInvoice();">Invoices</button>
   <button class="app-tab" onclick="switchAppTab('eligibility');renderEligibility();">Eligibility</button>
   <button class="app-tab" onclick="switchAppTab('referral');renderDrafts();updateDraftSelect();">Referral Dashboard</button>
-  <button class="app-tab" onclick="switchAppTab('subcontractors');renderPH();renderPHAgreements();">Subcontractors<span id="ph-ref-needed-badge" style="display:none;background:rgba(255,255,255,0.9);color:#1c2f4a;border:none;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:6px;vertical-align:middle"></span></button>
+  <button class="app-tab" onclick="switchAppTab('subcontractors');renderPH();renderPHAgreements();">Subcontractors<span id="ph-ref-needed-badge" style="display:none;background:rgba(255,255,255,0.9);color:#1c2f4a;border:none;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:6px;vertical-align:middle"></span><span id="br-ref-needed-badge" style="display:none;background:#7c3aed;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:4px;vertical-align:middle"></span></button>
   <button class="app-tab" onclick="switchAppTab('privatepay');ppInit();window.scrollTo(0,0);">Private Pay<span id="pp-expiry-badge" style="display:none;background:#e53e3e;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:6px;vertical-align:middle"></span></button>
 </div>
 
@@ -833,9 +833,11 @@ if (authState === 'owner' || authState === '1') {
         <!-- Subcontractor selector -->
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap" id="subcontractor-pills">
           <button class="pill active" id="ph-pill-phoenix" onclick="selectSubcontractor('phoenix')" style="font-size:12px;padding:5px 16px">Phoenix Haven LLC</button>
+          <button class="pill" id="ph-pill-bedrock" onclick="selectSubcontractor('bedrock')" style="font-size:12px;padding:5px 16px">Bedrock</button>
         </div>
 
         <!-- LLC Header -->
+        <div id="ph-content-area">
         <div style="margin-bottom:14px">
           <div style="font-size:16px;font-weight:600;color:var(--text)" id="ph-llc-name">Phoenix Haven LLC</div>
 
@@ -1016,6 +1018,132 @@ if (authState === 'owner' || authState === '1') {
         <div id="ph-panel-payments" style="display:none">
           <div id="ph-payments-body"></div>
         </div>
+
+        </div><!-- end ph-content-area -->
+
+        <!-- Bedrock Content Area -->
+        <div id="br-content-area" style="display:none">
+          <!-- BR Header -->
+          <div style="margin-bottom:14px">
+            <div style="font-size:16px;font-weight:600;color:var(--text)">Bedrock</div>
+          </div>
+
+          <!-- BR Inner tabs + controls -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+            <div class="month-pills" id="br-inner-tabs" style="margin-bottom:0">
+              <button class="br-inner-tab pill active" onclick="switchBRTab('agreements')" style="padding:9px 22px;font-size:13px">Agreements</button>
+              <button class="br-inner-tab pill" onclick="switchBRTab('invoices')" style="padding:9px 22px;font-size:13px">Invoices</button>
+              <button class="br-inner-tab pill" onclick="switchBRTab('eligibility')" style="padding:9px 22px;font-size:13px">Eligibility</button>
+              <button class="br-inner-tab pill" onclick="switchBRTab('payments')" style="padding:9px 22px;font-size:13px">Payments</button>
+            </div>
+          </div>
+
+          <!-- BR Invoice Controls (shown only on invoices tab) -->
+          <div id="br-invoice-controls" style="display:none;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+            <button class="btn btn-green" onclick="toggleBRAddForm()">+ Add Patient</button>
+            <button class="btn btn-navy" onclick="openBRAssignModal()">🔢 Assign invoice #s</button>
+            <button class="btn btn-navy" onclick="openBRCopyModal()">📋 Next Month</button>
+            <button class="btn btn-gold" onclick="openBRPrintAllModal()">🖨 Print Invoices</button>
+            <button class="btn btn-gray" onclick="exportBRInvoiceCSV()">⬇ Export CSV</button>
+          </div>
+
+          <!-- BR Add Patient Form -->
+          <div id="br-add-form" class="add-row-form">
+            <div class="form-field"><label>Patient name</label><input type="text" id="br-f-name" placeholder="Full name"></div>
+            <div class="form-field"><label>CIN</label><input type="text" id="br-f-cin" placeholder="CIN number"></div>
+            <div class="form-field"><label>Auth date</label><input type="text" id="br-f-auth" placeholder="MM/DD/YYYY"></div>
+            <div class="form-field"><label>House</label>
+              <select id="br-f-house" style="padding:8px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:inherit;font-size:13px">
+                <option value="">— Select house —</option>
+                <option>Willow House</option><option>Ranch House</option><option>Siltstone House</option>
+                <option>Hazel House</option><option>Leedy House</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:8px;padding-top:2px">
+              <button class="btn btn-green" onclick="confirmAddBRPatient()">Add to Agreement &amp; Invoice Tracker</button>
+              <button class="btn btn-gray" onclick="toggleBRAddForm()">Cancel</button>
+            </div>
+          </div>
+
+          <!-- BR Agreements Panel -->
+          <div id="br-panel-agreements">
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+              <input type="text" class="search-box" id="br-ag-search" placeholder="Search by name or CIN..." oninput="renderBRAgreements()" style="max-width:280px">
+              <button class="btn btn-green" onclick="toggleBRAddForm()">+ Add Patient</button>
+            </div>
+            <div id="br-ag-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px"></div>
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="background:#f0f4fa;font-size:11px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:.05em">
+                  <th style="padding:8px 12px;text-align:left">Status</th>
+                  <th style="padding:8px 12px;text-align:left">Patient Name</th>
+                  <th style="padding:8px 12px;text-align:left">CIN</th>
+                  <th style="padding:8px 12px;text-align:left">House</th>
+                  <th style="padding:8px 12px;text-align:left">Auth Date</th>
+                  <th style="padding:8px 12px;text-align:left">Expiry</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="br-ag-body"></tbody>
+            </table>
+          </div>
+
+          <!-- BR Invoices Panel -->
+          <div id="br-panel-invoices" style="display:none">
+            <div id="br-stats-bar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px"></div>
+            <div class="month-pills" id="br-month-pills" style="margin-bottom:14px"></div>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="background:#f0f4fa;font-size:11px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:.05em">
+                    <th style="padding:8px 12px;text-align:left">Month</th>
+                    <th style="padding:8px 12px;text-align:left">Invoice #</th>
+                    <th style="padding:8px 12px;text-align:left">Patient</th>
+                    <th style="padding:8px 12px;text-align:left">CIN</th>
+                    <th style="padding:8px 12px;text-align:left">House</th>
+                    <th style="padding:8px 12px;text-align:left">Rate</th>
+                    <th style="padding:8px 12px;text-align:left">Amount</th>
+                    <th style="padding:8px 12px;text-align:left">Payment</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="br-invoice-body"></tbody>
+              </table>
+            </div>
+            <div id="br-empty" style="text-align:center;color:var(--muted);padding:40px;display:none">No patients for this month</div>
+          </div>
+
+          <!-- BR Eligibility Panel -->
+          <div id="br-panel-eligibility" style="display:none">
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+              <input type="text" class="search-box" id="br-elig-search" placeholder="Search patients..." oninput="renderBREligibility()" style="max-width:280px">
+              <button class="btn btn-green" onclick="addBREligibility()">+ Add Patient</button>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="background:#f0f4fa;font-size:11px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:.05em">
+                  <th style="padding:8px 12px;text-align:left">Patient Name</th>
+                  <th style="padding:8px 12px;text-align:left">CIN</th>
+                  <th style="padding:8px 12px;text-align:left">House</th>
+                  <th style="padding:8px 12px;text-align:left">Status</th>
+                  <th style="padding:8px 12px;text-align:left">Notes</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="br-elig-body"></tbody>
+            </table>
+          </div>
+
+          <!-- BR Payments Panel -->
+          <div id="br-panel-payments" style="display:none">
+            <div class="month-pills" id="br-pay-month-pills" style="margin-bottom:14px"></div>
+            <div id="br-pay-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px"></div>
+            <div style="font-size:12px;font-weight:700;color:#3d7a2e;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Payments Received</div>
+            <div id="br-pay-list"></div>
+            <button class="btn btn-green" onclick="addBRPayment()" style="margin-top:8px;font-size:12px">+ Add Payment</button>
+          </div>
+
+        </div><!-- end br-content-area -->
 
       </div>
     </div>
@@ -1704,7 +1832,6 @@ Patient was admitted to [Facility Name] on [Admission Date] to [Discharge Date] 
   </div>
 </div>
 
-
 <div id="bulk-bar" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1c2f4a;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:500;z-index:1000;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.3)"><span id="bulk-count">0 selected</span><button onclick="bulkMarkPaid()" style="background:#22c55e;color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit">Mark paid</button><button onclick="clearBulkSelection()" style="background:rgba(255,255,255,0.2);color:#fff;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit">✕ Clear</button></div>
 
 
@@ -1759,6 +1886,17 @@ let currentAppTab = 'agreements';
 let currentAgTab = 'active';
 const _months=['January','February','March','April','May','June','July','August','September','October','November','December'];
 let activeMonth = _months[new Date().getMonth()];
+let brActiveMonth = _months[new Date().getMonth()];
+let BR_INVOICE_DATA_ARR = [];
+let BR_TRACKER = [];
+let BR_COMPLETED = [];
+let BR_ELIGIBILITY = [];
+let brInnerTab = 'invoices';
+const BR_RATE = 1400;
+const BR_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+let brPayActiveMonth = _months[new Date().getMonth()];
+let BR_PAYMENTS = {};
+let _brPrintQueue = [];
 let phActiveMonth = _months[new Date().getMonth()];
 let FL_LOCKED_MONTHS = {};
 let PH_LOCKED_MONTHS = {};
@@ -1814,7 +1952,7 @@ function switchAppTab(tab) {
   // Highlight correct tab button
   document.querySelectorAll('.app-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='agreements')||(i===1&&tab==='invoices')||(i===2&&tab==='eligibility')||(i===3&&tab==='referral')||(i===4&&tab==='subcontractors')||(i===5&&tab==='privatepay')));
   // Show/hide tab content panels directly via display style (belt + suspenders)
-  const tabs = ['agreements','invoices','eligibility','referral','subcontractors','privatepay'];
+  const tabs = ['agreements','invoices','eligibility','referral','subcontractors','privatepay','bedrock'];
   tabs.forEach(t => {
     const el = document.getElementById('tab-' + t);
     if (el) el.style.display = (t === tab) ? 'block' : 'none';
@@ -2017,6 +2155,11 @@ function loadFromSheet(onDone) {
       if (data.ph_payments) PH_PAYMENTS = data.ph_payments;
       if (data.fl_locked_months) FL_LOCKED_MONTHS = data.fl_locked_months;
       if (data.ph_locked_months) PH_LOCKED_MONTHS = data.ph_locked_months;
+      if (data.br_invoices) BR_INVOICE_DATA_ARR = data.br_invoices;
+      if (data.br_tracker) BR_TRACKER = data.br_tracker;
+      if (data.br_completed) BR_COMPLETED = data.br_completed;
+      if (data.br_payments) BR_PAYMENTS = data.br_payments;
+      if (data.br_eligibility) BR_ELIGIBILITY = data.br_eligibility;
       if (data.pp_beds && data.pp_beds.length>0) PP_BEDS = data.pp_beds;
       if (data.pp_selfpay && data.pp_selfpay.length>0) PP_SELFPAY = data.pp_selfpay;
       if (data.pp_sr_invoices && data.pp_sr_invoices.length>0) PP_SR_INVOICES = data.pp_sr_invoices;
@@ -2064,7 +2207,7 @@ function syncNow() {
   fetch(scriptURL, {
     method:'POST', mode:'no-cors',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS, pp_facilities:PP_FACILITIES, fl_locked_months:FL_LOCKED_MONTHS, ph_locked_months:PH_LOCKED_MONTHS})
+    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS, pp_facilities:PP_FACILITIES, fl_locked_months:FL_LOCKED_MONTHS, ph_locked_months:PH_LOCKED_MONTHS, br_invoices:BR_INVOICE_DATA_ARR, br_tracker:BR_TRACKER, br_completed:BR_COMPLETED, br_payments:BR_PAYMENTS, br_eligibility:BR_ELIGIBILITY})
   })
   .then(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; markSaved(new Date().toISOString()); showToast('Saved to Google Sheets ✓'); })
   .catch(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; showToast('Sync failed','error'); });
@@ -2312,6 +2455,21 @@ function sortInvoicesByAgreement(arr, month) {
 }
 
 
+function updateBRRefNeededBadge() {
+  const count = BR_TRACKER.filter(r =>
+    r['Auth Date'] && r['Auth Date'].toString().toLowerCase().includes('ref needed')
+  ).length;
+  const badge = document.getElementById('br-ref-needed-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.style.display = 'inline-block';
+    badge.title = count + ' Bedrock patient' + (count !== 1 ? 's' : '') + ' need re-auth';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
 function updatePHRefNeededBadge() {
   const count = PH_TRACKER.filter(r =>
     r['Auth Date'] && r['Auth Date'].toString().toLowerCase().includes('ref needed')
@@ -2334,14 +2492,18 @@ function updateReferralBanner() {
   const phCount = PH_TRACKER.filter(r =>
     r['Auth Date'] && r['Auth Date'].toString().toLowerCase().includes('ref needed')
   ).length;
+  const brCount = BR_TRACKER.filter(r =>
+    r['Auth Date'] && r['Auth Date'].toString().toLowerCase().includes('ref needed')
+  ).length;
   const banner = document.getElementById('referral-banner');
   const text = document.getElementById('referral-banner-text');
   if (!banner || !text) return;
-  const total = flCount + phCount;
+  const total = flCount + phCount + brCount;
   if (total > 0) {
     const parts = [];
     if (flCount > 0) parts.push('<strong>FL: ' + flCount + '</strong>');
     if (phCount > 0) parts.push('<strong>PH: ' + phCount + '</strong>');
+    if (brCount > 0) parts.push('<strong>BR: ' + brCount + '</strong>');
     text.innerHTML = '📄 Referrals needed — ' + parts.join(' &nbsp;·&nbsp; ');
     banner.style.display = 'flex';
   } else {
@@ -4083,6 +4245,8 @@ function closeInvoice(){
   if (badge) badge.parentNode.removeChild(badge);
   if (_phPrintQueue && _phPrintQueue.length > 0) {
     setTimeout(_openNextPHInvoice, 150);
+  } else if (_brPrintQueue && _brPrintQueue.length > 0) {
+    setTimeout(openNextBRInvoice, 150);
   }
 }
 
@@ -5861,7 +6025,6 @@ function switchPHTab(tab) {
     const isActive = btn.getAttribute('onclick').includes("'" + tab + "'");
     btn.classList.toggle('active', isActive);
   });
-  // Show invoice controls only on invoices tab
   const controls = document.getElementById('ph-invoice-controls');
   if (controls) controls.style.display = (tab === 'invoices') ? 'flex' : 'none';
   if (tab === 'invoices') renderPH();
@@ -6271,6 +6434,456 @@ function togglePHQuickAddForm() {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// BEDROCK TAB
+// ══════════════════════════════════════════════════════════════════════════════
+
+function brInit() {
+  switchBRTab(brInnerTab || 'agreements');
+}
+
+function switchBRTab(tab) {
+  brInnerTab = tab;
+  const panels = { invoices: 'br-panel-invoices', agreements: 'br-panel-agreements', eligibility: 'br-panel-eligibility', payments: 'br-panel-payments' };
+  Object.keys(panels).forEach(t => {
+    const el = document.getElementById(panels[t]);
+    if (el) el.style.display = (t === tab) ? 'block' : 'none';
+  });
+  const tabEl = document.getElementById('br-inner-tabs');
+  if (tabEl) tabEl.querySelectorAll('button').forEach(btn => {
+    btn.classList.toggle('active', (btn.textContent.trim().toLowerCase() === tab || btn.getAttribute('onclick').includes("'" + tab + "'")));
+  });
+  const controls = document.getElementById('br-invoice-controls');
+  if (controls) controls.style.display = tab === 'invoices' ? 'flex' : 'none';
+  try { if (tab === 'invoices') brRenderPills(); } catch(e) { console.error(e); }
+  try { if (tab === 'agreements') renderBRAgreements(); } catch(e) { console.error(e); }
+  try { if (tab === 'eligibility') renderBREligibility(); } catch(e) { console.error(e); }
+  try { if (tab === 'payments') brRenderPayments(); } catch(e) { console.error(e); }
+}
+
+function brRenderPills() {
+  const dataMonths = new Set(BR_INVOICE_DATA_ARR.map(r => r.month));
+  const months = BR_MONTHS.filter(m => dataMonths.has(m) || m === brActiveMonth);
+  if (!months.includes(brActiveMonth)) brActiveMonth = months[months.length-1] || BR_MONTHS[new Date().getMonth()];
+  const el = document.getElementById('br-month-pills');
+  if (el) el.innerHTML = BR_MONTHS.map(m => `<button class="pill${m===brActiveMonth?' active':''}" onclick="brActiveMonth='${m}';brRenderPills()">${m}</button>`).join('');
+  brRenderInvoices();
+  brRenderStats();
+}
+
+function brRenderStats() {
+  const rows = BR_INVOICE_DATA_ARR.filter(r => r.month === brActiveMonth);
+  const total = rows.reduce((s,r) => s + (r.invoice ? BR_RATE : 0), 0);
+  const invoiced = rows.filter(r => r.invoice).length;
+  const el = document.getElementById('br-stats-bar');
+  if (el) el.innerHTML = `
+    <div style="background:#f0f7ed;border-radius:10px;padding:12px 16px"><div style="font-size:11px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:4px">Patients</div><div style="font-size:20px;font-weight:700;color:#1c2f4a">${rows.length}</div></div>
+    <div style="background:#f0f7ed;border-radius:10px;padding:12px 16px"><div style="font-size:11px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:4px">Invoiced</div><div style="font-size:20px;font-weight:700;color:#1c2f4a">${invoiced}</div></div>
+    <div style="background:#f0f7ed;border-radius:10px;padding:12px 16px"><div style="font-size:11px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:4px">Total</div><div style="font-size:20px;font-weight:700;color:#1e6b3d">$${total.toLocaleString()}</div></div>`;
+}
+
+function brRenderInvoices() {
+  const rows = BR_INVOICE_DATA_ARR.filter(r => r.month === brActiveMonth);
+  const tbody = document.getElementById('br-invoice-body');
+  const empty = document.getElementById('br-empty');
+  if (!tbody) return;
+  if (!rows.length) { tbody.innerHTML=''; if(empty) empty.style.display=''; return; }
+  if (empty) empty.style.display='none';
+  tbody.innerHTML = rows.map((r,i) => {
+    const idx = BR_INVOICE_DATA_ARR.indexOf(r);
+    const hasInv = r.invoice && /^FL-\d+BR$/.test(r.invoice);
+    const amt = hasInv ? BR_RATE : 0;
+    return `<tr style="border-bottom:0.5px solid #f0f2f5">
+      <td style="padding:10px 12px"><span style="background:#fef9c3;color:#854d0e;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:600">${r.month}</span></td>
+      <td style="padding:10px 12px;font-size:12px;font-weight:600;color:#1c3455;font-family:DM Mono,monospace" contenteditable="true" onblur="saveBRInvoiceField(${idx},this.textContent)">${r.invoice||''}</td>
+      <td style="padding:10px 12px;font-weight:500">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;background:#7c3aed;color:#fff;font-size:10px;font-weight:700;flex-shrink:0">B</span>
+          ${r.name||''}
+        </div>
+        <div style="font-size:10px;color:#a82828;margin-top:1px">${r.note||''}</div>
+      </td>
+      <td style="padding:10px 12px;font-size:12px;color:#5d6b82;font-family:DM Mono,monospace">${r.cin||''}</td>
+      <td style="padding:10px 12px;font-size:12px;color:#5d6b82">${r.house||''}</td>
+      <td style="padding:10px 12px;font-size:12px;color:#5d6b82">$${BR_RATE.toLocaleString()}</td>
+      <td style="padding:10px 12px;font-size:13px;font-weight:600;color:${amt>0?'#1e6b3d':'#94a3b8'}">${amt>0?'$'+amt.toLocaleString():'—'}</td>
+      <td style="padding:10px 12px">
+        <select onchange="saveBRField(${idx},'payment',this.value)" style="font-size:11px;border-radius:6px;border:1px solid #e2e8f0;padding:3px 6px;font-family:inherit;color:${r.payment==='✓ Paid'?'#1e6b3d':'#c05621'}">
+          <option ${!r.payment||r.payment==='Billed'?'selected':''}>Billed</option>
+          <option ${r.payment==='✓ Paid'?'selected':''}>✓ Paid</option>
+          <option ${r.payment==='Waiting'?'selected':''}>Waiting</option>
+        </select>
+      </td>
+      <td style="padding:10px 12px"><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0" onclick="deleteBRRow(${idx})">&#x2715;</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function saveBRInvoiceField(idx, val) {
+  const clean = val.trim();
+  BR_INVOICE_DATA_ARR[idx].invoice = clean;
+  markUnsaved(); brRenderInvoices(); brRenderStats();
+}
+function saveBRField(idx, field, val) {
+  BR_INVOICE_DATA_ARR[idx][field] = val;
+  markUnsaved();
+}
+function deleteBRRow(idx) {
+  if (!confirm('Remove ' + (BR_INVOICE_DATA_ARR[idx].name||'this patient') + '?')) return;
+  BR_INVOICE_DATA_ARR.splice(idx, 1);
+  markUnsaved(); brRenderInvoices(); brRenderStats();
+}
+
+function toggleBRAddForm() {
+  const f = document.getElementById('br-add-form');
+  if (f) f.classList.toggle('visible');
+}
+function confirmAddBRPatient() {
+  const name = (document.getElementById('br-f-name').value||'').trim();
+  if (!name) { showToast('Patient name required','error'); return; }
+  const cin  = (document.getElementById('br-f-cin').value||'').trim();
+  const auth = (document.getElementById('br-f-auth').value||'').trim();
+  const house= (document.getElementById('br-f-house').value||'').trim();
+  // Add to tracker
+  BR_TRACKER.push({ 'Patient Name': name, 'CIN': cin, 'House': house, 'Auth Date': auth, 'Agreement Exp.': '' });
+  // Add to current month invoices
+  BR_INVOICE_DATA_ARR.push({ month: brActiveMonth, invoice: '', name, cin, house, payment: 'Billed', note: '' });
+  ['br-f-name','br-f-cin','br-f-auth'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('br-f-house').value='';
+  toggleBRAddForm();
+  markUnsaved(); syncNow();
+  showToast('✓ ' + name + ' added to Bedrock');
+  if (brInnerTab === 'agreements') renderBRAgreements();
+  else brRenderPills();
+}
+
+function openBRAddAgreement() { toggleBRAddForm(); }
+
+function renderBREligibility() {
+  const q = (document.getElementById('br-elig-search')||{value:''}).value.toLowerCase();
+  const tbody = document.getElementById('br-elig-body');
+  if (!tbody) return;
+  const rows = BR_ELIGIBILITY.filter(r => {
+    if (!r||!r.name) return false;
+    if (q && !(r.name||'').toLowerCase().includes(q) && !(r.cin||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No patients</td></tr>'; return; }
+  tbody.innerHTML = rows.map((r,i) => `<tr style="border-bottom:0.5px solid #f0f2f5">
+    <td style="padding:10px 12px;font-weight:500">${r.name||''}</td>
+    <td style="padding:10px 12px;font-size:12px;color:#5d6b82;font-family:DM Mono,monospace">${r.cin||''}</td>
+    <td style="padding:10px 12px;font-size:12px;color:#5d6b82">${r.house||''}</td>
+    <td style="padding:10px 12px">
+      <select onchange="BR_ELIGIBILITY[${i}].status=this.value;markUnsaved()" style="font-size:11px;border-radius:6px;border:1px solid #e2e8f0;padding:3px 6px;font-family:inherit">
+        <option ${r.status==='active'?'selected':''}>active</option>
+        <option ${r.status==='inactive'?'selected':''}>inactive</option>
+        <option ${r.status==='pending'?'selected':''}>pending</option>
+      </select>
+    </td>
+    <td style="padding:10px 12px;font-size:12px;color:#5d6b82" contenteditable="true" onblur="BR_ELIGIBILITY[${i}].notes=this.textContent.trim();markUnsaved()">${r.notes||''}</td>
+    <td style="padding:10px 12px"><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0" onclick="BR_ELIGIBILITY.splice(${i},1);markUnsaved();renderBREligibility()">&#x2715;</button></td>
+  </tr>`).join('');
+}
+
+function addBREligibility() {
+  const name = prompt('Patient full name:'); if (!name) return;
+  const cin = prompt('CIN:') || '';
+  const house = prompt('House:') || '';
+  BR_ELIGIBILITY.push({ name, cin, house, status: 'active', notes: '' });
+  markUnsaved(); renderBREligibility();
+}
+
+// ── Assign Invoice Numbers ─────────────────────────────────────────────────
+function openBRAssignModal() {
+  const eligible = BR_INVOICE_DATA_ARR.filter(r => r.month===brActiveMonth && r.name && !r.invoice);
+  if (!eligible.length) { showToast('All patients already have invoice numbers!'); return; }
+  const nextNum = getNextBRInvoiceNum();
+  document.getElementById('br-assign-month').textContent = brActiveMonth;
+  document.getElementById('br-assign-start').textContent = 'FL-' + nextNum + 'BR';
+  const list = document.getElementById('br-assign-list');
+  list._eligible = eligible;
+  list.style.display = 'grid';
+  list.style.gridTemplateColumns = '1fr 80px 50px';
+  list.innerHTML = eligible.map((r,i) => `
+    <div style="padding:9px 12px;border-bottom:0.5px solid #f0f2f5;font-size:13px;font-weight:500">
+      <div>${r.name}</div><div style="font-size:11px;color:#6b7589">${r.cin||'—'} · ${r.house||'—'}</div>
+    </div>
+    <div style="padding:9px 12px;text-align:right;display:flex;align-items:center;justify-content:flex-end;font-size:12px;font-weight:500;color:#1e6b3d">$${BR_RATE.toLocaleString()}</div>
+    <div style="padding:9px 12px;text-align:center;display:flex;align-items:center;justify-content:center">
+      <input type="checkbox" id="br_ai_${i}" checked style="width:15px;height:15px;accent-color:#1c3455;cursor:pointer">
+    </div>`).join('');
+  document.querySelectorAll('#br-assign-list input[type=checkbox]').forEach(cb => cb.addEventListener('change', updateBRAssignTotal));
+  document.getElementById('br-assign-modal').style.display = 'flex';
+  updateBRAssignTotal();
+}
+function closeBRAssignModal() { document.getElementById('br-assign-modal').style.display='none'; }
+function updateBRAssignTotal() {
+  const list = document.getElementById('br-assign-list');
+  const eligible = list._eligible||[];
+  const cbs = document.querySelectorAll('#br-assign-list input[type=checkbox]');
+  let total=0, count=0;
+  cbs.forEach((cb,i) => { if(cb.checked && eligible[i]) { total+=BR_RATE; count++; } });
+  const el = document.getElementById('br-assign-total');
+  if (el) el.textContent = count>0 ? `Assigning ${count} invoice${count!==1?'s':''} — Total: $${total.toLocaleString()}` : 'No patients selected';
+}
+function toggleSelectAllBRAssign() {
+  const cbs = document.querySelectorAll('#br-assign-list input[type=checkbox]');
+  const allChecked = Array.from(cbs).every(c=>c.checked);
+  cbs.forEach(c => c.checked=!allChecked);
+  document.getElementById('br-assign-select-all-btn').textContent = allChecked?'Select all':'Deselect all';
+  updateBRAssignTotal();
+}
+function getNextBRInvoiceNum() {
+  const all = BR_INVOICE_DATA_ARR.filter(r=>r.invoice&&/^FL-\d+BR$/.test(r.invoice))
+    .map(r=>parseInt(r.invoice.replace('FL-','').replace('BR','')));
+  // Also check FL and PH invoice numbers to avoid conflicts
+  const flNums = INVOICE_DATA_ARR.filter(r=>r.invoice&&/^FL-\d+$/.test(r.invoice)).map(r=>parseInt(r.invoice.replace('FL-','')));
+  const phNums = PH_INVOICE_DATA_ARR.filter(r=>r.invoice&&/^FL-\d+PH$/.test(r.invoice)).map(r=>parseInt(r.invoice.replace('FL-','').replace('PH','')));
+  const maxNum = Math.max(0, ...all, ...flNums, ...phNums);
+  return maxNum + 1;
+}
+function confirmBRAssign() {
+  const list = document.getElementById('br-assign-list');
+  const eligible = list._eligible;
+  let next = getNextBRInvoiceNum(), count=0;
+  eligible.forEach((r,i) => {
+    const cb = document.getElementById('br_ai_'+i);
+    if (cb && cb.checked) { r.invoice='FL-'+next+'BR'; r.payment='Billed'; next++; count++; }
+  });
+  closeBRAssignModal();
+  if (count>0) { markUnsaved(); syncNow(); showToast('✓ Assigned '+count+' Bedrock invoice'+(count>1?'s':'')); brRenderInvoices(); brRenderStats(); }
+}
+
+// ── Copy to Next Month ─────────────────────────────────────────────────────
+function openBRCopyModal() {
+  const curIdx = BR_MONTHS.indexOf(brActiveMonth);
+  if (curIdx===-1||curIdx>=BR_MONTHS.length-1) { showToast('No next month available'); return; }
+  const nextMonth = BR_MONTHS[curIdx+1];
+  document.getElementById('br-copy-next-month').textContent = nextMonth;
+  const rows = BR_INVOICE_DATA_ARR.filter(r=>r.month===brActiveMonth&&r.name);
+  const list = document.getElementById('br-copy-list');
+  list._rows = rows; list._nextMonth = nextMonth;
+  list.innerHTML = rows.map((r,i) => `<label class="copy-patient-item" for="br_cp_${i}">
+    <input type="checkbox" id="br_cp_${i}" checked style="width:15px;height:15px;accent-color:#3d7a2e;cursor:pointer;flex-shrink:0">
+    <div><div style="font-size:13px;font-weight:500">${r.name}</div>
+    ${r.note?`<div style="font-size:10px;color:#a82828">${r.note}</div>`:''}
+    <div style="font-size:11px;color:var(--muted)">${r.house||'—'}</div></div>
+  </label>`).join('');
+  document.getElementById('br-copy-modal').style.display='flex';
+}
+function closeBRCopyModal() { document.getElementById('br-copy-modal').style.display='none'; }
+function confirmBRCopy() {
+  const list = document.getElementById('br-copy-list');
+  const rows = list._rows, nextMonth = list._nextMonth;
+  let count=0;
+  rows.forEach((r,i) => {
+    const cb = document.getElementById('br_cp_'+i);
+    if (cb&&cb.checked) {
+      const exists = BR_INVOICE_DATA_ARR.some(x=>x.name===r.name&&x.month===nextMonth);
+      if (!exists) { BR_INVOICE_DATA_ARR.push({month:nextMonth,invoice:'',name:r.name,cin:r.cin||'',house:r.house||'',payment:'Billed',note:r.note||''}); count++; }
+    }
+  });
+  closeBRCopyModal();
+  if (count>0) { brActiveMonth=nextMonth; markUnsaved(); syncNow(); brRenderPills(); showToast('✓ Copied '+count+' patient'+(count>1?'s':'')+' to '+nextMonth); }
+}
+
+// ── Print Invoices ─────────────────────────────────────────────────────────
+function openBRPrintAllModal() {
+  const rows = BR_INVOICE_DATA_ARR.filter(r=>r.month===brActiveMonth&&r.name&&r.invoice);
+  if (!rows.length) { showToast('No invoiced patients for '+brActiveMonth,'error'); return; }
+  const list = document.getElementById('br-print-list');
+  list._rows = rows;
+  list.innerHTML = rows.map((r,i) => `<label class="copy-patient-item" for="br_pr_${i}">
+    <input type="checkbox" id="br_pr_${i}" checked style="width:15px;height:15px;accent-color:#3d7a2e;cursor:pointer;flex-shrink:0">
+    <div><div style="font-size:13px;font-weight:500">${r.name}</div>
+    <div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace">${r.invoice}</div></div>
+  </label>`).join('');
+  document.getElementById('br-print-all-modal').style.display='flex';
+}
+function closeBRPrintAllModal() { document.getElementById('br-print-all-modal').style.display='none'; }
+function confirmBRPrintAll() {
+  const list = document.getElementById('br-print-list');
+  const rows = list._rows;
+  _brPrintQueue = [];
+  rows.forEach((r,i) => {
+    const cb = document.getElementById('br_pr_'+i);
+    if (cb&&cb.checked) _brPrintQueue.push(BR_INVOICE_DATA_ARR.indexOf(r));
+  });
+  closeBRPrintAllModal();
+  if (!_brPrintQueue.length) { showToast('No patients selected'); return; }
+  showToast('✓ Opening '+_brPrintQueue.length+' invoice'+(_brPrintQueue.length>1?' — close each to open the next':''));
+  openNextBRInvoice();
+}
+function openNextBRInvoice() {
+  if (!_brPrintQueue.length) return;
+  const idx = _brPrintQueue.shift();
+  openBRInvoice(idx);
+}
+function openBRInvoice(idx) {
+  const r = BR_INVOICE_DATA_ARR[idx];
+  if (!r) return;
+  const invoiceDate = (new Date().getMonth()+1)+'/1/'+(new Date().getFullYear());
+  const dueDate = addDays(invoiceDate, 30);
+  const nameParts = (r.name||'').split(' ');
+  const nameShort = nameParts.length>1 ? nameParts[0][0]+nameParts[nameParts.length-1] : r.name;
+  document.title = (r.invoice||'Draft')+'_'+nameShort+'_'+(r.month||'').slice(0,3)+'26_BR';
+  document.getElementById('inv-toolbar-title').textContent = (r.invoice||'Draft') + ' — ' + r.name;
+  document.getElementById('invoice-body').innerHTML =
+    '<div class="inv-header"><div class="inv-logo">Foundation Living</div>' +
+    '<div class="inv-meta">Invoice #: <strong>'+(r.invoice||'Pending')+'</strong><br>Date: <strong>'+invoiceDate+'</strong><br>Due: <strong>'+dueDate+'</strong><br>Amount due: <strong style="color:#3d7a2e">$'+BR_RATE.toLocaleString()+'.00</strong></div></div>' +
+    '<div class="inv-to"><div class="inv-label">Bill To</div><strong>Bedrock Recovery</strong></div>' +
+    '<table class="inv-table"><thead><tr><th>Description</th><th>Patient</th><th>CIN</th><th>House</th><th>Rate</th><th>Amount</th></tr></thead><tbody>' +
+    '<tr><td>Monthly Residential Services</td><td>'+r.name+'</td><td>'+(r.cin||'—')+'</td><td>'+(r.house||'—')+'</td><td>$'+BR_RATE.toLocaleString()+'/month</td><td>$'+BR_RATE.toLocaleString()+'.00</td></tr>' +
+    '</tbody></table>' +
+    '<div class="inv-notes"><div class="inv-notes-label">Notes / Terms</div>Services provided: Residential care and housing<br>Payment due within 30 days of invoice date</div>' +
+    '<div class="inv-footer">Please send payment to: Foundation Living · 531 Eureka Avenue, Lodi CA 95240</div>';
+  const ov = document.getElementById('invoice-overlay');
+  document.body.appendChild(ov);
+  ov.style.display = 'flex';
+  const printBtn = document.getElementById('inv-print-btn');
+  if (printBtn) printBtn.onclick = function(){ window.print(); };
+}
+
+// ── Export CSV ─────────────────────────────────────────────────────────────
+function exportBRInvoiceCSV() {
+  const rows = BR_INVOICE_DATA_ARR.filter(r=>r.month===brActiveMonth&&r.name);
+  if (!rows.length) { showToast('No Bedrock invoices for '+brActiveMonth,'error'); return; }
+  const lines = [['Invoice #','Patient Name','CIN','House','Rate','Amount'].join(',')];
+  rows.forEach(r => {
+    const amt = r.invoice ? BR_RATE : '';
+    lines.push([r.invoice||'','"'+(r.name||'').replace(/"/g,'""')+'"',r.cin||'',r.house||'',BR_RATE,amt].join(','));
+  });
+  const total = rows.filter(r=>r.invoice).reduce((s)=>s+BR_RATE, 0);
+  lines.push(',,,Total,,'+total);
+  const blob = new Blob([lines.join('\n')],{type:'text/csv'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='BR_Invoices_'+brActiveMonth+'_2026.csv'; a.click();
+  showToast('✓ Exported Bedrock '+brActiveMonth+' invoices');
+}
+
+// ── Save / Load ────────────────────────────────────────────────────────────
+// BR data is included in syncNow payload (see syncNow function)
+
+// ── BR Agreements ──────────────────────────────────────────────────────────
+function renderBRAgreements() {
+  updateBRRefNeededBadge();
+  const q = (document.getElementById('br-ag-search')||{value:''}).value.toLowerCase();
+  const tbody = document.getElementById('br-ag-body');
+  if (!tbody) return;
+  const rows = BR_TRACKER.filter(r => {
+    if (!r || !r['Patient Name']) return false;
+    if (q && !(r['Patient Name']||'').toLowerCase().includes(q) && !(r['CIN']||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  // Stats
+  const statsEl = document.getElementById('br-ag-stats');
+  if (statsEl) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const active = rows.filter(r => { const e=r['Agreement Exp.']; if(!e) return false; const d=new Date(e); return !isNaN(d)&&d>=today; }).length;
+    const expiring = rows.filter(r => { const e=r['Agreement Exp.']; if(!e) return false; const d=new Date(e); const dl=Math.round((d-today)/86400000); return dl>=0&&dl<=30; }).length;
+    statsEl.innerHTML = `
+      <div style="background:#f0f7ed;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Total</div><div style="font-size:18px;font-weight:700;color:#1c2f4a">${rows.length}</div></div>
+      <div style="background:#f0f7ed;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Active</div><div style="font-size:18px;font-weight:700;color:#1e6b3d">${active}</div></div>
+      <div style="background:#fff8f0;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Expiring Soon</div><div style="font-size:18px;font-weight:700;color:#c05621">${expiring}</div></div>`;
+  }
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No patients — click + Add Patient to get started</td></tr>'; return; }
+  tbody.innerHTML = rows.map((r,i) => {
+    const exp = r['Agreement Exp.'] ? new Date(r['Agreement Exp.']) : null;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const daysLeft = exp ? Math.round((exp-today)/86400000) : null;
+    const status = !exp ? 'none' : daysLeft < 0 ? 'expired' : daysLeft <= 14 ? 'urgent' : daysLeft <= 30 ? 'expiring' : 'active';
+    const dotColor = status==='active'?'#22c55e':status==='expiring'||status==='urgent'?'#eab308':'#ef4444';
+    const expStr = exp ? (exp.getMonth()+1)+'/'+(exp.getDate())+'/'+exp.getFullYear() : '—';
+    const expColor = daysLeft!==null&&daysLeft<=14?'#c53030':daysLeft!==null&&daysLeft<=30?'#c05621':'#5d6b82';
+    return `<tr style="border-bottom:0.5px solid #f0f2f5">
+      <td style="padding:10px 12px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor}"></span></td>
+      <td style="padding:10px 12px;font-weight:500">${r['Patient Name']||''}</td>
+      <td style="padding:10px 12px;font-size:12px;color:#5d6b82;font-family:DM Mono,monospace">${r['CIN']||''}</td>
+      <td style="padding:10px 12px;font-size:12px;color:#5d6b82">${r['House']||''}</td>
+      <td style="padding:10px 12px;font-size:12px;color:#5d6b82" contenteditable="true" onblur="saveBRAgField(${i},'Auth Date',this.textContent)">${r['Auth Date']||''}</td>
+      <td style="padding:10px 12px;font-size:12px;font-weight:${daysLeft!==null&&daysLeft<=30?'700':'400'};color:${expColor}" contenteditable="true" onblur="saveBRAgField(${i},'Agreement Exp.',this.textContent)">${expStr}</td>
+      <td style="padding:10px 12px"><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0" onclick="deleteBRAg(${i})">&#x2715;</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function saveBRAgField(idx, field, val) {
+  if (!BR_TRACKER[idx]) return;
+  const clean = val.trim();
+  if (field === 'Agreement Exp.') {
+    const parts = clean.split('/');
+    if (parts.length === 3) {
+      const yr = parts[2].length===2?'20'+parts[2]:parts[2];
+      BR_TRACKER[idx][field] = yr+'-'+parts[0].padStart(2,'0')+'-'+parts[1].padStart(2,'0');
+    } else { BR_TRACKER[idx][field] = clean; }
+  } else { BR_TRACKER[idx][field] = clean; }
+  updateBRRefNeededBadge();
+  markUnsaved();
+}
+
+function deleteBRAg(idx) {
+  if (!confirm('Remove ' + (BR_TRACKER[idx]?.['Patient Name']||'this patient') + ' from Bedrock agreements?')) return;
+  BR_TRACKER.splice(idx, 1);
+  markUnsaved(); renderBRAgreements();
+}
+
+function openBRAddAgreement() {
+  const name = prompt('Patient full name:'); if (!name) return;
+  const cin = prompt('CIN:') || '';
+  const house = prompt('House (Willow/Ranch/Siltstone/Hazel/Leedy):') || '';
+  const auth = prompt('Auth date (MM/DD/YYYY):') || '';
+  const exp = prompt('Agreement expiry (MM/DD/YYYY):') || '';
+  const expFmt = (function(s){ const p=s.split('/'); return p.length===3?(p[2].length===2?'20'+p[2]:p[2])+'-'+p[0].padStart(2,'0')+'-'+p[1].padStart(2,'0'):''; })(exp);
+  BR_TRACKER.push({ 'Patient Name': name, 'CIN': cin, 'House': house, 'Auth Date': auth, 'Agreement Exp.': expFmt });
+  markUnsaved(); syncNow(); renderBRAgreements();
+  showToast('✓ ' + name + ' added to Bedrock agreements');
+}
+
+// ── BR Payments ────────────────────────────────────────────────────────────
+
+function brRenderPayments() {
+  const months = [...new Set(BR_INVOICE_DATA_ARR.map(r=>r.month))].sort((a,b)=>BR_MONTHS.indexOf(a)-BR_MONTHS.indexOf(b));
+  if (!months.length) months.push(brPayActiveMonth);
+  if (!months.includes(brPayActiveMonth)) brPayActiveMonth = months[months.length-1];
+  const pillsEl = document.getElementById('br-pay-month-pills');
+  if (pillsEl) pillsEl.innerHTML = months.map(m=>`<button class="pill${m===brPayActiveMonth?' active':''}" onclick="brPayActiveMonth='${m}';brRenderPayments()">${m}</button>`).join('');
+  const invoiced = BR_INVOICE_DATA_ARR.filter(r=>r.month===brPayActiveMonth&&r.invoice).length;
+  const expected = invoiced * BR_RATE;
+  const payments = (BR_PAYMENTS[brPayActiveMonth]||[]);
+  const received = payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const statsEl = document.getElementById('br-pay-stats');
+  if (statsEl) statsEl.innerHTML = `
+    <div style="background:#f0f7ed;border-radius:10px;padding:12px 16px"><div style="font-size:11px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:4px">Invoiced</div><div style="font-size:20px;font-weight:700;color:#1e6b3d">$${expected.toLocaleString()}</div></div>
+    <div style="background:#f0f7ed;border-radius:10px;padding:12px 16px"><div style="font-size:11px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:4px">Received</div><div style="font-size:20px;font-weight:700;color:#1e6b3d">$${received.toLocaleString()}</div></div>
+    <div style="background:${received<expected?'#fff5f5':'#f0f7ed'};border-radius:10px;padding:12px 16px"><div style="font-size:11px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:4px">Balance</div><div style="font-size:20px;font-weight:700;color:${received<expected?'#c53030':'#1e6b3d'}">$${(expected-received).toLocaleString()}</div></div>`;
+  const listEl = document.getElementById('br-pay-list');
+  if (listEl) {
+    if (!payments.length) { listEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">No payments recorded</div>'; return; }
+    listEl.innerHTML = payments.map((p,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid #f0f2f5;font-size:13px">
+        <span style="color:#5d6b82;min-width:90px">${p.date||''}</span>
+        <span style="flex:1;color:#1a202c">${p.description||'Payment'}</span>
+        <span style="font-weight:600;color:#1e6b3d">$${parseFloat(p.amount||0).toLocaleString()}</span>
+        <button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:13px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0" onclick="deleteBRPayment(${i})">&#x2715;</button>
+      </div>`).join('');
+  }
+}
+
+function addBRPayment() {
+  const date = prompt('Payment date (MM/DD/YYYY):'); if (!date) return;
+  const amount = prompt('Amount:'); if (!amount) return;
+  const desc = prompt('Description (optional):') || 'Payment received';
+  if (!BR_PAYMENTS[brPayActiveMonth]) BR_PAYMENTS[brPayActiveMonth] = [];
+  BR_PAYMENTS[brPayActiveMonth].push({ date, amount: parseFloat(amount)||0, description: desc });
+  markUnsaved(); syncNow(); brRenderPayments();
+}
+
+function deleteBRPayment(idx) {
+  if (!BR_PAYMENTS[brPayActiveMonth]) return;
+  BR_PAYMENTS[brPayActiveMonth].splice(idx, 1);
+  markUnsaved(); brRenderPayments();
+}
+
 function confirmPHQuickAdd() {
   const name = (document.getElementById('ph-qa-name').value || '').trim();
   if (!name) { showToast('Patient name is required', 'error'); return; }
@@ -6367,12 +6980,15 @@ function addPHPatient() { togglePHAddForm(); }
 
 // ── PH Assign Invoice Numbers ─────────────────────────────────────────────────
 function selectSubcontractor(id) {
-  // Future: switch between subcontractors
   document.querySelectorAll('#subcontractor-pills .pill').forEach(p => p.classList.remove('active'));
   const pill = document.getElementById('ph-pill-' + id);
   if (pill) pill.classList.add('active');
-  // Currently only Phoenix Haven is supported
-  renderPH();
+  const phContent = document.getElementById('ph-content-area');
+  const brContent = document.getElementById('br-content-area');
+  if (phContent) phContent.style.display = id === 'phoenix' ? '' : 'none';
+  if (brContent) brContent.style.display = id === 'bedrock' ? '' : 'none';
+  if (id === 'phoenix') { renderPH(); renderPHAgreements(); }
+  if (id === 'bedrock') { setTimeout(function(){ brInit(); }, 50); }
 }
 
 function openPHAssignModal() {
