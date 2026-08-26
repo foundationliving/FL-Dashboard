@@ -1069,23 +1069,28 @@ if (authState === 'owner' || authState === '1') {
           <div id="br-panel-agreements">
             <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
               <input type="text" class="search-box" id="br-ag-search" placeholder="Search by name or CIN..." oninput="renderBRAgreements()" style="max-width:280px">
+              <select id="br-ag-filter" onchange="renderBRAgreements()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
+                <option value="all">All patients</option>
+                <option value="urgent">🔴 Urgent</option>
+                <option value="warning">🟡 Expiring soon</option>
+                <option value="ok">🟢 Active</option>
+                <option value="pending">⏳ Pending</option>
+              </select>
+              <div style="display:flex;gap:6px">
+                <button class="br-ag-tab-btn pill active" id="br-ag-active-btn" onclick="switchBRAgTab('active')" style="font-size:12px;padding:6px 14px">Active</button>
+                <button class="br-ag-tab-btn pill" id="br-ag-completed-btn" onclick="switchBRAgTab('completed')" style="font-size:12px;padding:6px 14px">Completed</button>
+              </div>
               <button class="btn btn-green" onclick="toggleBRAddForm()">+ Add Patient</button>
             </div>
             <div id="br-ag-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px"></div>
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
-              <thead>
-                <tr style="background:#f0f4fa;font-size:11px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:.05em">
-                  <th style="padding:8px 12px;text-align:left">Status</th>
-                  <th style="padding:8px 12px;text-align:left">Patient Name</th>
-                  <th style="padding:8px 12px;text-align:left">CIN</th>
-                  <th style="padding:8px 12px;text-align:left">House</th>
-                  <th style="padding:8px 12px;text-align:left">Auth Date</th>
-                  <th style="padding:8px 12px;text-align:left">Expiry</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="br-ag-body"></tbody>
-            </table>
+            <div id="br-ag-count" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead id="br-ag-thead"></thead>
+                <tbody id="br-agr-body"></tbody>
+              </table>
+            </div>
+            <div id="br-ag-empty" style="display:none;text-align:center;color:var(--muted);padding:40px">No patients found</div>
           </div>
 
           <!-- BR Invoices Panel -->
@@ -1891,6 +1896,7 @@ let BR_INVOICE_DATA_ARR = [];
 let BR_TRACKER = [];
 let BR_COMPLETED = [];
 let BR_ELIGIBILITY = [];
+let currentBRAgTab = 'active';
 let brInnerTab = 'invoices';
 const BR_RATE = 1400;
 const BR_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -6765,46 +6771,158 @@ function exportBRInvoiceCSV() {
 // BR data is included in syncNow payload (see syncNow function)
 
 // ── BR Agreements ──────────────────────────────────────────────────────────
+function switchBRAgTab(tab) {
+  currentBRAgTab = tab;
+  ['active','completed'].forEach(t => {
+    const btn = document.getElementById('br-ag-' + t + '-btn');
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  renderBRAgreements();
+}
+
+function getBRAgStatus(r) {
+  const auth = (r['Auth Date']||'').toString();
+  if (auth.toLowerCase().includes('ref needed')) return 'pending';
+  const expStr = r['Agreement Exp.'];
+  if (!expStr) return 'none';
+  const exp = new Date(expStr);
+  if (isNaN(exp)) return 'none';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = Math.round((exp - today) / 86400000);
+  if (days < 0) return 'expired';
+  if (days <= 14) return 'urgent';
+  if (days <= 45) return 'warning';
+  return 'ok';
+}
+
+function brExpBadge(r) {
+  const expStr = r['Agreement Exp.'];
+  if (!expStr) return '<span style="color:#94a3b8;font-size:12px">—</span>';
+  const exp = new Date(expStr);
+  if (isNaN(exp)) return '<span style="color:#94a3b8;font-size:12px">' + expStr + '</span>';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = Math.round((exp - today) / 86400000);
+  const fmt = (exp.getMonth()+1) + '/' + exp.getDate() + '/' + String(exp.getFullYear()).slice(2);
+  const color = days < 0 ? '#c53030' : days <= 14 ? '#c53030' : days <= 45 ? '#c05621' : '#1e6b3d';
+  const bg = days < 0 ? '#fff5f5' : days <= 14 ? '#fff5f5' : days <= 45 ? '#fff8f0' : '#f0f7ed';
+  const border = days < 0 ? '#fca5a5' : days <= 14 ? '#fca5a5' : days <= 45 ? '#fed7aa' : '#86e0aa';
+  const label = days < 0 ? 'Expired ' + fmt : days === 0 ? 'Expires today' : days <= 14 ? fmt + ' (' + days + 'd)' : fmt;
+  return '<span style="padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;background:' + bg + ';color:' + color + ';border:1px solid ' + border + '">' + label + '</span>';
+}
+
 function renderBRAgreements() {
   updateBRRefNeededBadge();
-  const q = (document.getElementById('br-ag-search')||{value:''}).value.toLowerCase();
-  const tbody = document.getElementById('br-ag-body');
-  if (!tbody) return;
-  const rows = BR_TRACKER.filter(r => {
-    if (!r || !r['Patient Name']) return false;
-    if (q && !(r['Patient Name']||'').toLowerCase().includes(q) && !(r['CIN']||'').toLowerCase().includes(q)) return false;
-    return true;
-  });
+  const rawData = currentBRAgTab === 'active' ? BR_TRACKER : (BR_COMPLETED||[]);
+  const search = ((document.getElementById('br-ag-search')||{}).value||'').toLowerCase();
+  const filter = (document.getElementById('br-ag-filter')||{value:'all'}).value;
+
   // Stats
   const statsEl = document.getElementById('br-ag-stats');
   if (statsEl) {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const active = rows.filter(r => { const e=r['Agreement Exp.']; if(!e) return false; const d=new Date(e); return !isNaN(d)&&d>=today; }).length;
-    const expiring = rows.filter(r => { const e=r['Agreement Exp.']; if(!e) return false; const d=new Date(e); const dl=Math.round((d-today)/86400000); return dl>=0&&dl<=30; }).length;
+    const active = BR_TRACKER.length;
+    const urgent = BR_TRACKER.filter(r => getBRAgStatus(r) === 'urgent').length;
+    const warning = BR_TRACKER.filter(r => getBRAgStatus(r) === 'warning').length;
+    const pending = BR_TRACKER.filter(r => getBRAgStatus(r) === 'pending').length;
     statsEl.innerHTML = `
-      <div style="background:#f0f7ed;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Total</div><div style="font-size:18px;font-weight:700;color:#1c2f4a">${rows.length}</div></div>
-      <div style="background:#f0f7ed;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Active</div><div style="font-size:18px;font-weight:700;color:#1e6b3d">${active}</div></div>
-      <div style="background:#fff8f0;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Expiring Soon</div><div style="font-size:18px;font-weight:700;color:#c05621">${expiring}</div></div>`;
+      <div style="background:#f0f7ed;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Active</div><div style="font-size:18px;font-weight:700;color:#1c2f4a">${active}</div></div>
+      <div style="background:#fff5f5;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Urgent</div><div style="font-size:18px;font-weight:700;color:#c53030">${urgent}</div></div>
+      <div style="background:#fff8f0;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Expiring Soon</div><div style="font-size:18px;font-weight:700;color:#c05621">${warning}</div></div>
+      <div style="background:#f0f7ed;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Pending</div><div style="font-size:18px;font-weight:700;color:#7c3aed">${pending}</div></div>`;
   }
-  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No patients — click + Add Patient to get started</td></tr>'; return; }
-  tbody.innerHTML = rows.map((r,i) => {
-    const exp = r['Agreement Exp.'] ? new Date(r['Agreement Exp.']) : null;
-    const today = new Date(); today.setHours(0,0,0,0);
-    const daysLeft = exp ? Math.round((exp-today)/86400000) : null;
-    const status = !exp ? 'none' : daysLeft < 0 ? 'expired' : daysLeft <= 14 ? 'urgent' : daysLeft <= 30 ? 'expiring' : 'active';
-    const dotColor = status==='active'?'#22c55e':status==='expiring'||status==='urgent'?'#eab308':'#ef4444';
-    const expStr = exp ? (exp.getMonth()+1)+'/'+(exp.getDate())+'/'+exp.getFullYear() : '—';
-    const expColor = daysLeft!==null&&daysLeft<=14?'#c53030':daysLeft!==null&&daysLeft<=30?'#c05621':'#5d6b82';
+
+  let rows = rawData.filter(r => {
+    const name = (r['Patient Name']||'').toLowerCase();
+    const cin = (r['CIN']||'').toLowerCase();
+    if (search && !name.includes(search) && !cin.includes(search)) return false;
+    if (filter !== 'all' && currentBRAgTab === 'active') {
+      const s = getBRAgStatus(r);
+      if (filter === 'urgent' && s !== 'urgent') return false;
+      if (filter === 'warning' && !['urgent','warning'].includes(s)) return false;
+      if (filter === 'ok' && s !== 'ok') return false;
+      if (filter === 'pending' && s !== 'pending') return false;
+    }
+    return true;
+  });
+
+  const thead = document.getElementById('br-ag-thead');
+  if (thead) thead.innerHTML = `<tr style="background:#fef3c7">
+    <th style="width:20%;color:#78350f">Patient name</th>
+    <th style="width:13%;color:#78350f">CIN</th>
+    <th style="width:11%;color:#78350f">House</th>
+    <th style="width:11%;color:#78350f">Auth date</th>
+    <th style="width:14%;color:#78350f">Agreement exp.</th>
+    <th style="width:20%;color:#78350f">Comments</th>
+    <th style="width:11%;text-align:center;color:#78350f">Re-auth sent</th>
+  </tr>`;
+
+  const tbody = document.getElementById('br-agr-body');
+  const emptyEl = document.getElementById('br-ag-empty');
+  const countEl = document.getElementById('br-ag-count');
+  if (!tbody) return;
+  if (!rows.length) { tbody.innerHTML = ''; if(emptyEl) emptyEl.style.display=''; if(countEl) countEl.textContent=''; return; }
+  if (emptyEl) emptyEl.style.display = 'none';
+  if (countEl) countEl.textContent = 'Showing ' + rows.length + ' of ' + rawData.length + ' records';
+
+  tbody.innerHTML = rows.map(r => {
+    const ri = rawData.indexOf(r);
+    const s = getBRAgStatus(r);
+    const dotColor = s==='ok'?'#22c55e':s==='warning'?'#eab308':s==='urgent'?'#ef4444':s==='pending'?'#7c3aed':'#94a3b8';
     return `<tr style="border-bottom:0.5px solid #f0f2f5">
-      <td style="padding:10px 12px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor}"></span></td>
-      <td style="padding:10px 12px;font-weight:500">${r['Patient Name']||''}</td>
-      <td style="padding:10px 12px;font-size:12px;color:#5d6b82;font-family:DM Mono,monospace">${r['CIN']||''}</td>
-      <td style="padding:10px 12px;font-size:12px;color:#5d6b82">${r['House']||''}</td>
-      <td style="padding:10px 12px;font-size:12px;color:#5d6b82" contenteditable="true" onblur="saveBRAgField(${i},'Auth Date',this.textContent)">${r['Auth Date']||''}</td>
-      <td style="padding:10px 12px;font-size:12px;font-weight:${daysLeft!==null&&daysLeft<=30?'700':'400'};color:${expColor}" contenteditable="true" onblur="saveBRAgField(${i},'Agreement Exp.',this.textContent)">${expStr}</td>
-      <td style="padding:10px 12px"><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0" onclick="deleteBRAg(${i})">&#x2715;</button></td>
+      <td style="padding:8px 10px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};flex-shrink:0"></span>
+          <span contenteditable="true" onblur="saveBRAgField(${ri},'Patient Name',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-weight:500;color:#1a202c;cursor:text" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${r['Patient Name']||''}</span>
+        </div>
+      </td>
+      <td style="padding:8px 10px"><span contenteditable="true" onblur="saveBRAgField(${ri},'CIN',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;color:#718096;font-size:12px;cursor:text;font-family:'DM Mono',monospace" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${r['CIN']||''}</span></td>
+      <td style="padding:8px 10px"><span contenteditable="true" onblur="saveBRAgField(${ri},'House',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-size:12px;cursor:text" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${r['House']||''}</span></td>
+      <td style="padding:8px 10px"><span contenteditable="true" onblur="saveBRAgField(${ri},'Auth Date',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-size:12px;cursor:text" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${formatDate(r['Auth Date'])||''}</span></td>
+      <td style="padding:8px 10px" id="br-ag-exp-${ri}" onclick="editBRAgExp(${ri})">${brExpBadge(r)}</td>
+      <td style="padding:8px 10px"><span contenteditable="true" onblur="saveBRAgField(${ri},'Comments',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;color:#718096;font-size:12px;cursor:text" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${r['Comments']||''}</span></td>
+      <td style="padding:8px 10px;text-align:center">
+        ${(()=>{
+          let sentDate = r.reauthSentDate;
+          if (sentDate) { const d=new Date(sentDate); if(!isNaN(d)) sentDate=(d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2); }
+          return sentDate
+            ? `<div style="display:inline-flex;align-items:center;gap:4px">
+                <span style="padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#eefbf3;color:#1e6b3d;border:1px solid #86e0aa">✓ ${sentDate}</span>
+                <button onclick="clearBRReauthSent(${ri})" title="Clear" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:12px;padding:0" onmouseover="this.style.color='#a82828'" onmouseout="this.style.color='#94a3b8'">×</button>
+               </div>`
+            : `<button onclick="markBRReauthSent(${ri})" style="padding:2px 8px;font-size:10px;font-weight:500;border-radius:5px;cursor:pointer;font-family:inherit;background:#f8fafc;color:#64748b;border:1px solid #e2e8f0" onmouseover="this.style.background='#eefbf3';this.style.color='#1e6b3d';this.style.borderColor='#86e0aa'" onmouseout="this.style.background='#f8fafc';this.style.color='#64748b';this.style.borderColor='#e2e8f0'">+ Mark sent</button>`;
+        })()}
+      </td>
+      ${currentBRAgTab==='active'?`<td style="padding:8px 10px"><button onclick="dischargeBRPatient(${ri})" style="padding:3px 7px;font-size:10px;font-weight:500;border-radius:5px;cursor:pointer;background:#fff0f0;color:#a82828;border:1px solid #fcc8c8;font-family:inherit;white-space:nowrap">→ Dc</button></td>`:''}
     </tr>`;
   }).join('');
+}
+
+function editBRAgExp(idx) {
+  const r = (currentBRAgTab==='active'?BR_TRACKER:BR_COMPLETED)[idx];
+  if (!r) return;
+  const current = brExpBadge(r);
+  const cell = document.getElementById('br-ag-exp-' + idx);
+  if (!cell) return;
+  const exp = r['Agreement Exp.'] ? new Date(r['Agreement Exp.']) : null;
+  const fmt = exp && !isNaN(exp) ? (exp.getMonth()+1)+'/'+(exp.getDate())+'/'+exp.getFullYear() : '';
+  cell.innerHTML = `<input type="text" value="${fmt}" placeholder="MM/DD/YYYY" style="width:100%;padding:3px 6px;font-size:12px;border:1px solid #7c3aed;border-radius:5px;font-family:inherit" onblur="saveBRAgField(${idx},'Agreement Exp.',this.value);renderBRAgreements()" onkeydown="if(event.key==='Enter'){this.blur()}" autofocus>`;
+  cell.querySelector('input').focus();
+}
+
+function markBRReauthSent(idx) {
+  const arr = currentBRAgTab==='active'?BR_TRACKER:BR_COMPLETED;
+  if (arr[idx]) { arr[idx].reauthSentDate = new Date().toISOString(); markUnsaved(); renderBRAgreements(); }
+}
+function clearBRReauthSent(idx) {
+  const arr = currentBRAgTab==='active'?BR_TRACKER:BR_COMPLETED;
+  if (arr[idx]) { delete arr[idx].reauthSentDate; markUnsaved(); renderBRAgreements(); }
+}
+function dischargeBRPatient(idx) {
+  if (!confirm('Discharge ' + (BR_TRACKER[idx]?.['Patient Name']||'this patient') + ' from Bedrock?')) return;
+  const r = BR_TRACKER.splice(idx, 1)[0];
+  if (!BR_COMPLETED) BR_COMPLETED = [];
+  BR_COMPLETED.unshift(r);
+  markUnsaved(); syncNow(); renderBRAgreements();
+  showToast('✓ ' + (r['Patient Name']||'Patient') + ' discharged');
 }
 
 function saveBRAgField(idx, field, val) {
