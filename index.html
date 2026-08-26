@@ -1040,7 +1040,7 @@ if (authState === 'owner' || authState === '1') {
 
           <!-- BR Invoice Controls (shown only on invoices tab) -->
           <div id="br-invoice-controls" style="display:none;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-            <button class="btn btn-green" onclick="toggleBRAddForm()">+ Add Patient</button>
+            <button class="btn btn-green" onclick="toggleBRInvoiceAddForm()">+ Add Patient</button>
             <button class="btn btn-navy" onclick="openBRAssignModal()">🔢 Assign invoice #s</button>
             <button class="btn btn-navy" onclick="openBRCopyModal()">📋 Next Month</button>
             <button class="btn btn-gold" onclick="openBRPrintAllModal()">🖨 Print Invoices</button>
@@ -1067,23 +1067,52 @@ if (authState === 'owner' || authState === '1') {
 
           <!-- BR Agreements Panel -->
           <div id="br-panel-agreements">
-            <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
-              <input type="text" class="search-box" id="br-ag-search" placeholder="Search by name or CIN..." oninput="renderBRAgreements()" style="max-width:280px">
-              <select id="br-ag-filter" onchange="renderBRAgreements()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px">
-                <option value="all">All patients</option>
-                <option value="urgent">🔴 Urgent</option>
-                <option value="warning">🟡 Expiring soon</option>
-                <option value="ok">🟢 Active</option>
-                <option value="pending">⏳ Pending</option>
-              </select>
-              <div style="display:flex;gap:6px">
-                <button class="br-ag-tab-btn pill active" id="br-ag-active-btn" onclick="switchBRAgTab('active')" style="font-size:12px;padding:6px 14px">Active</button>
-                <button class="br-ag-tab-btn pill" id="br-ag-completed-btn" onclick="switchBRAgTab('completed')" style="font-size:12px;padding:6px 14px">Completed</button>
+
+            <div style="display:flex;gap:8px;margin-bottom:12px">
+              <button class="btn" style="background:#7c3aed;color:#fff" onclick="openBRNewAgreementModal()">✉ New Agreement Reminder</button>
+              <button class="btn" style="background:#c2460a;color:#fff" onclick="openBRReauthModal()">✉ Re-auth Reminder</button>
+            </div>
+
+            <div id="br-ag-add-form" class="add-row-form">
+              <div class="form-field"><label>Patient name</label><input type="text" id="br-ag-f-name" placeholder="Full name"></div>
+              <div class="form-field"><label>CIN</label><input type="text" id="br-ag-f-cin" placeholder="CIN number"></div>
+              <div class="form-field"><label>House</label>
+                <select id="br-ag-f-house" style="padding:8px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:inherit;font-size:13px">
+                  <option value="">— Select house —</option>
+                  <option>Willow House</option><option>Ranch House</option><option>Siltstone House</option>
+                  <option>Hazel House</option><option>Leedy House</option>
+                </select>
               </div>
+              <div class="form-field"><label>Auth date</label><input type="text" id="br-ag-f-auth" placeholder="MM/DD/YYYY"></div>
+              <div class="form-field"><label>Agreement exp.</label><input type="text" id="br-ag-f-exp" placeholder="MM/DD/YYYY"></div>
+              <div class="form-field" style="flex:2"><label>Comments</label><input type="text" id="br-ag-f-comment" placeholder="Notes..."></div>
+              <div style="display:flex;gap:8px;padding-top:2px">
+                <button class="btn btn-green" onclick="addBRAgreementPatient()">Add</button>
+                <button class="btn btn-gray" onclick="toggleBRAddForm()">Cancel</button>
+              </div>
+            </div>
+
+            <div class="month-pills" style="margin-bottom:16px">
+              <button class="pill active" id="br-ag-tab-active" onclick="switchBRAgTab('active')">Active patients</button>
+              <button class="pill" id="br-ag-tab-completed" onclick="switchBRAgTab('completed')">Completed / discharged</button>
+            </div>
+
+            <div id="br-ag-stats" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px"></div>
+
+            <div class="controls">
+              <input type="text" class="search-box" id="br-ag-search" placeholder="Search by name or CIN..." oninput="renderBRAgreements()">
+              <select class="filter-select" id="br-ag-filter" onchange="renderBRAgreements()">
+                <option value="all">All statuses</option>
+                <option value="urgent">Urgent (≤31 days)</option>
+                <option value="warning">Warning (≤45 days)</option>
+                <option value="ok">On track</option>
+                <option value="pending">Pending</option>
+              </select>
               <button class="btn btn-green" onclick="toggleBRAddForm()">+ Add Patient</button>
             </div>
-            <div id="br-ag-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px"></div>
-            <div id="br-ag-count" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
+
+            <div id="br-ag-count" style="font-size:12px;color:var(--muted);margin:8px 0"></div>
+
             <div style="overflow-x:auto">
               <table style="width:100%;border-collapse:collapse;font-size:13px">
                 <thead id="br-ag-thead"></thead>
@@ -1095,27 +1124,34 @@ if (authState === 'owner' || authState === '1') {
 
           <!-- BR Invoices Panel -->
           <div id="br-panel-invoices" style="display:none">
-            <div id="br-stats-bar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px"></div>
-            <div class="month-pills" id="br-month-pills" style="margin-bottom:14px"></div>
-            <div style="overflow-x:auto">
-              <table style="width:100%;border-collapse:collapse;font-size:13px">
-                <thead>
-                  <tr style="background:#f0f4fa;font-size:11px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:.05em">
-                    <th style="padding:8px 12px;text-align:left">Month</th>
-                    <th style="padding:8px 12px;text-align:left">Invoice #</th>
-                    <th style="padding:8px 12px;text-align:left">Patient</th>
-                    <th style="padding:8px 12px;text-align:left">CIN</th>
-                    <th style="padding:8px 12px;text-align:left">House</th>
-                    <th style="padding:8px 12px;text-align:left">Rate</th>
-                    <th style="padding:8px 12px;text-align:left">Amount</th>
-                    <th style="padding:8px 12px;text-align:left">Payment</th>
-                    <th></th>
-                  </tr>
-                </thead>
+            <div id="br-stats-bar" style="display:grid;gap:10px;margin-bottom:16px"></div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px">
+              <div class="month-pills" id="br-month-pills" style="margin-bottom:0"></div>
+              <div style="background:rgba(255,255,255,0.9);border:1px solid var(--border);border-radius:8px;padding:8px 14px;display:inline-flex;align-items:center;gap:10px;flex-shrink:0">
+                <div><div style="font-size:9.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px">Next invoice</div><div id="br-next-inv-num" style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:#7c3aed">—</div></div>
+              </div>
+            </div>
+
+            <div class="controls">
+              <input type="text" class="search-box" id="br-search" placeholder="Search by name, CIN, or invoice #..." oninput="brRenderInvoices()">
+              <select class="filter-select" id="br-status-filter" onchange="brRenderInvoices()">
+                <option value="all">All statuses</option>
+                <option value="billed">Invoiced</option>
+                <option value="paid">Paid</option>
+                <option value="waiting">Waiting</option>
+                <option value="issue">Needs attention</option>
+              </select>
+            </div>
+
+            <div class="table-wrap">
+              <table id="br-inv-table">
+                <thead id="br-inv-thead"></thead>
                 <tbody id="br-invoice-body"></tbody>
               </table>
+              <div class="empty" id="br-inv-empty" style="display:none">No records found.</div>
             </div>
-            <div id="br-empty" style="text-align:center;color:var(--muted);padding:40px;display:none">No patients for this month</div>
+            <div class="count-note" id="br-inv-count"></div>
           </div>
 
           <!-- BR Eligibility Panel -->
@@ -1217,6 +1253,49 @@ if (authState === 'owner' || authState === '1') {
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-gray" onclick="closePHWeeklyModal()">Cancel</button>
       <button class="btn btn-green" onclick="confirmPHWeeklyCheck()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- BR Assign Invoice Numbers Modal -->
+<div id="br-assign-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:520px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px">Assign Invoice Numbers</div>
+    <div style="font-size:12px;color:#6b7589;margin-bottom:12px">Bedrock — <span id="br-assign-month"></span> · Starting from <strong id="br-assign-start"></strong></div>
+    <div id="br-assign-list" style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:space-between;align-items:center">
+      <button onclick="toggleSelectAllBRAssign()" id="br-assign-select-all-btn" style="padding:7px 14px;font-size:12px;border-radius:8px;cursor:pointer;font-family:inherit;background:#f0f4fa;color:#1c3455;border:1px solid #dde2ea">Deselect all</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-gray" onclick="closeBRAssignModal()">Cancel</button>
+        <button class="btn btn-green" onclick="confirmBRAssign()">Assign</button>
+      </div>
+    </div>
+    <div id="br-assign-total" style="margin-top:10px;padding:9px 14px;background:#f0f7ed;border:1px solid #b6dba8;border-radius:8px;font-size:12px;font-weight:600;color:#1e6b3d;text-align:center"></div>
+  </div>
+</div>
+
+<!-- BR Copy to Next Month Modal -->
+<div id="br-copy-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:480px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px">Copy to Next Month</div>
+    <div style="font-size:12px;color:#6b7589;margin-bottom:12px">Bedrock — <span id="br-copy-next-month"></span></div>
+    <div id="br-copy-list" style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-gray" onclick="closeBRCopyModal()">Cancel</button>
+      <button class="btn btn-green" onclick="confirmBRCopy()">Copy</button>
+    </div>
+  </div>
+</div>
+
+<!-- BR Print All Modal -->
+<div id="br-print-all-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:480px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px">Print Bedrock Invoices</div>
+    <div style="font-size:12px;color:#6b7589;margin-bottom:12px">Select patients to include on one combined invoice</div>
+    <div id="br-print-list" style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-gray" onclick="closeBRPrintAllModal()">Cancel</button>
+      <button class="btn btn-green" onclick="confirmBRPrintAll()">Print Selected</button>
     </div>
   </div>
 </div>
@@ -1837,6 +1916,32 @@ Patient was admitted to [Facility Name] on [Admission Date] to [Discharge Date] 
   </div>
 </div>
 
+<!-- BR Re-auth Reminder Modal -->
+<div id="br-reauth-modal-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:24px;width:90%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.18)">
+    <div style="font-size:15px;font-weight:600;color:#0f2035;margin-bottom:4px">Re-auth Reminder</div>
+    <div style="font-size:12px;color:#6b7589;margin-bottom:12px">Patients expiring within 45 days — check off who to include in the email</div>
+    <div id="br-reauth-patient-list" style="overflow-y:auto;flex:1;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeBRReauthModal()" style="padding:7px 14px;font-size:12px;border-radius:8px;cursor:pointer;font-family:inherit;background:#f0f2f5;color:#6b7589;border:1.5px solid #e2e8f0">Cancel</button>
+      <button onclick="sendBRReauthEmail()" style="padding:7px 16px;font-size:12px;font-weight:500;border-radius:8px;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#1c2f4a,#2a4a6b);color:#fff;border:none">Send Email</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Agreement Reminder Modal (BR) -->
+<div id="br-newagreement-modal-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:24px;width:90%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.18)">
+    <div style="font-size:15px;font-weight:600;color:#0f2035;margin-bottom:4px">New Agreement Reminder</div>
+    <div style="font-size:12px;color:#6b7589;margin-bottom:12px">Patients with no agreement on file yet — check off who to include in the email</div>
+    <div id="br-newagreement-patient-list" style="overflow-y:auto;flex:1;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeBRNewAgreementModal()" style="padding:7px 14px;font-size:12px;border-radius:8px;cursor:pointer;font-family:inherit;background:#f0f2f5;color:#6b7589;border:1.5px solid #e2e8f0">Cancel</button>
+      <button onclick="sendBRNewAgreementEmail()" style="padding:7px 16px;font-size:12px;font-weight:500;border-radius:8px;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#1c2f4a,#2a4a6b);color:#fff;border:none">Send Email</button>
+    </div>
+  </div>
+</div>
+
 <div id="bulk-bar" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1c2f4a;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:500;z-index:1000;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.3)"><span id="bulk-count">0 selected</span><button onclick="bulkMarkPaid()" style="background:#22c55e;color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit">Mark paid</button><button onclick="clearBulkSelection()" style="background:rgba(255,255,255,0.2);color:#fff;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit">✕ Clear</button></div>
 
 
@@ -1902,6 +2007,8 @@ const BR_RATE = 1400;
 const BR_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 let brPayActiveMonth = _months[new Date().getMonth()];
 let BR_PAYMENTS = {};
+let BR_LOCKED_MONTHS = {};
+function isBRMonthLocked(month) { return !!(BR_LOCKED_MONTHS && BR_LOCKED_MONTHS[month]); }
 let _brPrintQueue = [];
 let phActiveMonth = _months[new Date().getMonth()];
 let FL_LOCKED_MONTHS = {};
@@ -2166,6 +2273,7 @@ function loadFromSheet(onDone) {
       if (data.br_completed) BR_COMPLETED = data.br_completed;
       if (data.br_payments) BR_PAYMENTS = data.br_payments;
       if (data.br_eligibility) BR_ELIGIBILITY = data.br_eligibility;
+      if (data.br_locked_months) BR_LOCKED_MONTHS = data.br_locked_months;
       if (data.pp_beds && data.pp_beds.length>0) PP_BEDS = data.pp_beds;
       if (data.pp_selfpay && data.pp_selfpay.length>0) PP_SELFPAY = data.pp_selfpay;
       if (data.pp_sr_invoices && data.pp_sr_invoices.length>0) PP_SR_INVOICES = data.pp_sr_invoices;
@@ -2213,7 +2321,7 @@ function syncNow() {
   fetch(scriptURL, {
     method:'POST', mode:'no-cors',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS, pp_facilities:PP_FACILITIES, fl_locked_months:FL_LOCKED_MONTHS, ph_locked_months:PH_LOCKED_MONTHS, br_invoices:BR_INVOICE_DATA_ARR, br_tracker:BR_TRACKER, br_completed:BR_COMPLETED, br_payments:BR_PAYMENTS, br_eligibility:BR_ELIGIBILITY})
+    body: JSON.stringify({action:'save', tracker:TRACKER, completed:COMPLETED, invoices:INVOICE_DATA_ARR, eligibility:ELIGIBILITY_DATA, ph_invoices:PH_INVOICE_DATA_ARR, ph_eligibility:PH_ELIGIBILITY_DATA, ph_tracker:PH_TRACKER, ph_payments:PH_PAYMENTS, pp_beds:PP_BEDS, pp_selfpay:PP_SELFPAY, pp_sr_invoices:PP_SR_INVOICES, pp_sr_months:PP_SR_MONTHS, pp_facilities:PP_FACILITIES, fl_locked_months:FL_LOCKED_MONTHS, ph_locked_months:PH_LOCKED_MONTHS, br_invoices:BR_INVOICE_DATA_ARR, br_tracker:BR_TRACKER, br_completed:BR_COMPLETED, br_payments:BR_PAYMENTS, br_eligibility:BR_ELIGIBILITY, br_locked_months:BR_LOCKED_MONTHS})
   })
   .then(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; markSaved(new Date().toISOString()); showToast('Saved to Google Sheets ✓'); })
   .catch(() => { btn.innerHTML='☁ Sync'; btn.disabled=false; showToast('Sync failed','error'); });
@@ -3657,6 +3765,166 @@ function sendPHNewAgreementEmail() {
   showToast('Opening email client...');
 }
 
+// ── Re-auth Reminder (Bedrock) ──
+function openBRReauthModal() {
+  const today = new Date();
+  const in45 = new Date(today.getTime() + 45*24*60*60*1000);
+  const patients = BR_TRACKER.filter(r => {
+    if (!r['Agreement Exp.']) return false;
+    const exp = safeParseDate(r['Agreement Exp.']);
+    if (isNaN(exp)) return false;
+    return exp <= in45;
+  }).sort((a, b) => {
+    const ea = safeParseDate(a['Agreement Exp.']), eb = safeParseDate(b['Agreement Exp.']);
+    return ea - eb;
+  });
+
+  const list = document.getElementById('br-reauth-patient-list');
+  if (patients.length === 0) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:#6b7589;font-size:13px">No patients with expiring agreements</div>';
+  } else {
+    list.innerHTML = patients.map((r, i) => {
+      const exp = safeParseDate(r['Agreement Exp.']);
+      const daysLeft = Math.round((exp - today) / 86400000);
+      const dot = daysLeft < 0 ? '#ef4444' : daysLeft <= 31 ? '#eab308' : '#22c55e';
+      const expStr = (exp.getMonth()+1) + '/' + exp.getDate() + '/' + String(exp.getFullYear()).slice(2);
+      const notes = r['Comments'] ? '<div style="font-size:11px;color:#6b7589;margin-top:3px;padding-left:25px">' + r['Comments'] + '</div>' : '';
+      const checked = daysLeft < 0 ? 'checked' : '';
+      const rawSentDate = r.reauthSentDate;
+      let sentDate = null;
+      if (rawSentDate) {
+        const d = new Date(rawSentDate);
+        sentDate = !isNaN(d) ? (d.getMonth()+1) + '/' + d.getDate() + '/' + String(d.getFullYear()).slice(2) : rawSentDate;
+      }
+      const sentBadge = sentDate
+        ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#eefbf3;color:#1e6b3d;border:1px solid #86e0aa;margin-left:6px">✓ Sent ' + sentDate + '</span>'
+        : '';
+      return '<div id="br-reauth-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5">' +
+        '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">' +
+        '<input type="checkbox" id="br_reauth_' + i + '" ' + checked + ' style="margin-top:2px;width:15px;height:15px;accent-color:#c2460a;flex-shrink:0">' +
+        '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
+        '<span style="width:8px;height:8px;border-radius:50%;background:' + dot + ';display:inline-block;flex-shrink:0"></span>' +
+        '<span style="font-size:13px;font-weight:500;color:#1c2f4a">' + r['Patient Name'] + '</span>' +
+        '<span style="font-size:11px;color:#6b7589">Exp: ' + expStr + '</span>' +
+        sentBadge +
+        '</div>' + notes + '</div></label></div>';
+    }).join('');
+  }
+  list._patients = patients;
+  const ov = document.getElementById('br-reauth-modal-overlay');
+  document.body.appendChild(ov);
+  ov.style.display = 'flex';
+}
+
+function closeBRReauthModal() {
+  document.getElementById('br-reauth-modal-overlay').style.display = 'none';
+}
+
+function sendBRReauthEmail() {
+  const list = document.getElementById('br-reauth-patient-list');
+  const patients = list._patients || [];
+  const selected = patients.filter((r, i) => {
+    const cb = document.getElementById('br_reauth_' + i);
+    return cb && cb.checked;
+  });
+
+  if (selected.length === 0) { showToast('No patients selected', 'error'); return; }
+
+  const today = new Date();
+  const dateStr = (today.getMonth()+1) + '/' + today.getDate() + '/' + String(today.getFullYear()).slice(2);
+  patients.forEach((r, i) => {
+    const cb = document.getElementById('br_reauth_' + i);
+    if (cb && cb.checked) { r.reauthSentDate = dateStr; }
+  });
+  markUnsaved();
+  renderBRAgreements();
+
+  const lines = selected.map((r,i) => {
+    const exp = safeParseDate(r['Agreement Exp.']);
+    const expStr = (exp.getMonth()+1) + '/' + exp.getDate() + '/' + exp.getFullYear();
+    const cin = r['CIN'] ? 'CIN: ' + r['CIN'] : 'CIN: —';
+    const todayDateOnly = new Date(); todayDateOnly.setHours(0,0,0,0);
+    const verb = (!isNaN(exp) && exp >= todayDateOnly) ? 'Expires' : 'Expired';
+    return (i+1) + '. ' + r['Patient Name'] + ' — ' + cin + ' — ' + verb + ' ' + expStr;
+  }).join('\n');
+
+  const body = encodeURIComponent('Hi,\n\nThe following Bedrock patients are due for re-authorization:\n\n' + lines + '\n\nThank you,\nMoses Rodriguez\nFoundation Living\n408-640-0116');
+  const subject = encodeURIComponent('Re-auth Needed — Bedrock Patients');
+  window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+  closeBRReauthModal();
+  showToast('Opening email client...');
+}
+
+// ── New Agreement Reminder (Bedrock) ──
+function openBRNewAgreementModal() {
+  const patients = BR_TRACKER.filter(r => { const v = String(r['Agreement Exp.']||'').trim().toLowerCase(); return !v || v === 'pending' || v === 'n/a' || v === 'tbd'; });
+  const list = document.getElementById('br-newagreement-patient-list');
+  if (patients.length === 0) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:#6b7589;font-size:13px">No patients missing an agreement</div>';
+  } else {
+    list.innerHTML = patients.map((r, i) => {
+      const notes = r['Comments'] ? '<div style="font-size:11px;color:#6b7589;margin-top:3px;padding-left:25px">' + r['Comments'] + '</div>' : '';
+      const rawSentDate = r.newAgreementSentDate;
+      let sentDate = null;
+      if (rawSentDate) {
+        const d = new Date(rawSentDate);
+        sentDate = !isNaN(d) ? (d.getMonth()+1) + '/' + d.getDate() + '/' + String(d.getFullYear()).slice(2) : rawSentDate;
+      }
+      const sentBadge = sentDate
+        ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#eefbf3;color:#1e6b3d;border:1px solid #86e0aa;margin-left:6px">✓ Sent ' + sentDate + '</span>'
+        : '';
+      return '<div id="br-newagreement-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5">' +
+        '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">' +
+        '<input type="checkbox" id="br_newagreement_' + i + '" checked style="margin-top:2px;width:15px;height:15px;accent-color:#7c3aed;flex-shrink:0">' +
+        '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
+        '<span style="width:8px;height:8px;border-radius:50%;background:#7c3aed;display:inline-block;flex-shrink:0"></span>' +
+        '<span style="font-size:13px;font-weight:500;color:#1c2f4a">' + r['Patient Name'] + '</span>' +
+        '<span style="font-size:11px;color:#6b7589">No agreement on file</span>' +
+        sentBadge +
+        '</div>' + notes + '</div></label></div>';
+    }).join('');
+  }
+  list._patients = patients;
+  const ov = document.getElementById('br-newagreement-modal-overlay');
+  document.body.appendChild(ov);
+  ov.style.display = 'flex';
+}
+
+function closeBRNewAgreementModal() {
+  document.getElementById('br-newagreement-modal-overlay').style.display = 'none';
+}
+
+function sendBRNewAgreementEmail() {
+  const list = document.getElementById('br-newagreement-patient-list');
+  const patients = list._patients || [];
+  const selected = patients.filter((r, i) => {
+    const cb = document.getElementById('br_newagreement_' + i);
+    return cb && cb.checked;
+  });
+
+  if (selected.length === 0) { showToast('No patients selected', 'error'); return; }
+
+  const today = new Date();
+  const dateStr = (today.getMonth()+1) + '/' + today.getDate() + '/' + String(today.getFullYear()).slice(2);
+  patients.forEach((r, i) => {
+    const cb = document.getElementById('br_newagreement_' + i);
+    if (cb && cb.checked) { r.newAgreementSentDate = dateStr; }
+  });
+  markUnsaved();
+  renderBRAgreements();
+
+  const lines = selected.map((r,i) => {
+    const cin = r['CIN'] ? 'CIN: ' + r['CIN'] : 'CIN: —';
+    return (i+1) + '. ' + r['Patient Name'] + ' — ' + cin;
+  }).join('\n');
+
+  const body = encodeURIComponent('Hi,\n\nThe following Bedrock patients do not yet have an agreement on file. Please advise on next steps:\n\n' + lines + '\n\nThank you,\nMoses Rodriguez\nFoundation Living\n408-640-0116');
+  const subject = encodeURIComponent('New Agreement Needed — Bedrock Patients');
+  window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+  closeBRNewAgreementModal();
+  showToast('Opening email client...');
+}
+
 
 
 function openInactiveEmailModal() {
@@ -4251,8 +4519,6 @@ function closeInvoice(){
   if (badge) badge.parentNode.removeChild(badge);
   if (_phPrintQueue && _phPrintQueue.length > 0) {
     setTimeout(_openNextPHInvoice, 150);
-  } else if (_brPrintQueue && _brPrintQueue.length > 0) {
-    setTimeout(openNextBRInvoice, 150);
   }
 }
 
@@ -6467,62 +6733,337 @@ function switchBRTab(tab) {
   try { if (tab === 'payments') brRenderPayments(); } catch(e) { console.error(e); }
 }
 
+function brFindTrackerMatch(name, cin) {
+  const nameLower = (name||'').toLowerCase().trim();
+  const nameParts = nameLower.split(' ');
+  const lastName = nameParts[nameParts.length-1];
+  const cinClean = (cin||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,'');
+  return [...BR_TRACKER, ...(BR_COMPLETED||[])].find(r => {
+    if (!r['Patient Name']) return false;
+    if (cinClean && r['CIN']) {
+      const tCin = (r['CIN']||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,'');
+      if (tCin && tCin === cinClean) return true;
+    }
+    const tn = (r['Patient Name']||'').toLowerCase().trim();
+    if (tn === nameLower) return true;
+    const tp = tn.split(' ');
+    if (tp[tp.length-1] !== lastName) return false;
+    return nameParts[0].slice(0,3) === tp[0].slice(0,3);
+  });
+}
+
+function getBRAgreementStatus(name, cin, month) {
+  if (!name) return 'none';
+  const match = brFindTrackerMatch(name, cin);
+  if (!match) return 'none';
+  const exp = match['Agreement Exp.'];
+  if (!exp) return 'none';
+  if (exp === 'DISCHARGED EARLY' || exp === 'WALKAWAY') return 'none';
+  if (exp.toLowerCase().includes('pending')) return 'none';
+  if (exp.match(/^\d{4}-/)) {
+    const parts = exp.split('-');
+    const expDate = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+    let refDate;
+    if (month) {
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const mIdx = monthNames.indexOf(month);
+      const year = mIdx >= 0 ? (mIdx < new Date().getMonth() - 2 ? new Date().getFullYear()+1 : new Date().getFullYear()) : new Date().getFullYear();
+      refDate = mIdx >= 0 ? new Date(year, mIdx, 1) : new Date();
+    } else {
+      refDate = new Date();
+    }
+    if (expDate < refDate) return 'none';
+    const authStr = match['Auth Date'];
+    if (authStr) {
+      const authDate = safeParseDate(authStr);
+      if (!isNaN(authDate)) {
+        const refMonthEnd = new Date(refDate.getFullYear(), refDate.getMonth()+1, 0);
+        if (authDate > refMonthEnd) return 'none';
+      }
+    }
+    if (expDate.getMonth() === refDate.getMonth() && expDate.getFullYear() === refDate.getFullYear()) return 'expiring';
+    return 'active';
+  }
+  return 'none';
+}
+
+function getBRLastDayFromAgreement(name, cin, month) {
+  const match = brFindTrackerMatch(name, cin);
+  if (!match) return null;
+  const exp = match['Agreement Exp.'];
+  if (!exp || !exp.match(/^\d{4}-/)) return null;
+  const parts = exp.split('-');
+  const expDate = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthIdx = monthNames.indexOf(month);
+  if (monthIdx === -1) return null;
+  if (expDate.getMonth() === monthIdx && expDate.getFullYear() === new Date().getFullYear()) {
+    return (expDate.getMonth()+1) + '/' + expDate.getDate() + '/' + expDate.getFullYear();
+  }
+  return null;
+}
+
+function getBRAutoFirstDay(name, cin, month) {
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthIdx = monthNames.indexOf(month);
+  if (monthIdx === -1) return null;
+  const year = new Date().getFullYear();
+  const match = brFindTrackerMatch(name, cin);
+  if (match && match['Auth Date']) {
+    const authStr = formatDate(match['Auth Date']);
+    if (authStr && authStr !== '—') {
+      const parts = authStr.split('/');
+      if (parts.length === 3) {
+        const authMonth = parseInt(parts[0]) - 1;
+        const authYear = parseInt(parts[2].length === 2 ? '20' + parts[2] : parts[2]);
+        if (authMonth === monthIdx && authYear === year) {
+          return parts[0] + '/' + parts[1] + '/' + (parts[2].length === 2 ? '20' + parts[2] : parts[2]);
+        }
+      }
+    }
+  }
+  return (monthIdx + 1) + '/1/' + year;
+}
+
+function getBRAutoLastDay(name, cin, month) {
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthIdx = monthNames.indexOf(month);
+  if (monthIdx === -1) return null;
+  const year = new Date().getFullYear();
+  const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+  const defaultLast = (monthIdx + 1) + '/' + lastDay + '/' + year;
+  const expiry = getBRLastDayFromAgreement(name, cin, month);
+  return expiry || defaultLast;
+}
+
+function getBREffectiveDates(r) {
+  const s = getBRAgreementStatus(r.name, r.cin, r.month);
+  if (s !== 'active' && s !== 'expiring') return { firstDay: null, lastDay: null };
+  const first = r.firstDay || getBRAutoFirstDay(r.name, r.cin, r.month);
+  const ag = getBRLastDayFromAgreement(r.name, r.cin, r.month);
+  const last = ag || r.lastDay || getBRAutoLastDay(r.name, r.cin, r.month);
+  return { firstDay: first, lastDay: last };
+}
+
 function brRenderPills() {
   const dataMonths = new Set(BR_INVOICE_DATA_ARR.map(r => r.month));
   const months = BR_MONTHS.filter(m => dataMonths.has(m) || m === brActiveMonth);
   if (!months.includes(brActiveMonth)) brActiveMonth = months[months.length-1] || BR_MONTHS[new Date().getMonth()];
   const el = document.getElementById('br-month-pills');
-  if (el) el.innerHTML = BR_MONTHS.map(m => `<button class="pill${m===brActiveMonth?' active':''}" onclick="brActiveMonth='${m}';brRenderPills()">${m}</button>`).join('');
+  if (el) el.innerHTML = BR_MONTHS.map(m => {
+    const locked = isBRMonthLocked(m);
+    const badge = locked
+      ? `<span onclick="if(confirm('Unlock Bedrock ${m}?'))unlockBRMonth('${m}')" title="Click to unlock ${m}" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔒</span>`
+      : '';
+    return `<span style="position:relative;display:inline-block"><button class="pill${m===brActiveMonth?' active':''}" onclick="brActiveMonth='${m}';brRenderPills()">${m}</button>${badge}</span>`;
+  }).join('');
   brRenderInvoices();
   brRenderStats();
 }
 
+function lockBRMonth(month) {
+  BR_LOCKED_MONTHS[month] = true;
+  markUnsaved(); syncNow(); brRenderPills();
+}
+function unlockBRMonth(month) {
+  delete BR_LOCKED_MONTHS[month];
+  markUnsaved(); syncNow(); brRenderPills();
+  showToast('🔓 Bedrock ' + month + ' unlocked');
+}
+
 function brRenderStats() {
   const rows = BR_INVOICE_DATA_ARR.filter(r => r.month === brActiveMonth);
-  const total = rows.reduce((s,r) => s + (r.invoice ? BR_RATE : 0), 0);
-  const invoiced = rows.filter(r => r.invoice).length;
+  const invoicedRows = rows.filter(r => r.invoice && /^FL-\d+BR$/.test(r.invoice));
+  const gross = invoicedRows.length * BR_RATE;
+  const paidRows = invoicedRows.filter(r => r.payment === '\u2713 Paid');
+  const paidTotal = paidRows.length * BR_RATE;
+  const balance = gross - paidTotal;
   const el = document.getElementById('br-stats-bar');
-  if (el) el.innerHTML = `
-    <div style="background:#f0f7ed;border-radius:10px;padding:12px 16px"><div style="font-size:11px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:4px">Patients</div><div style="font-size:20px;font-weight:700;color:#1c2f4a">${rows.length}</div></div>
-    <div style="background:#f0f7ed;border-radius:10px;padding:12px 16px"><div style="font-size:11px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:4px">Invoiced</div><div style="font-size:20px;font-weight:700;color:#1c2f4a">${invoiced}</div></div>
-    <div style="background:#f0f7ed;border-radius:10px;padding:12px 16px"><div style="font-size:11px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:4px">Total</div><div style="font-size:20px;font-weight:700;color:#1e6b3d">$${total.toLocaleString()}</div></div>`;
+  if (!el) return;
+  el.style.gridTemplateColumns = 'repeat(4,1fr)';
+  el.innerHTML = [
+    {label:'Gross (Bedrock)', val:'$'+gross.toLocaleString(), color:'#7c3aed'},
+    {label:'Invoiced', val: invoicedRows.length, color:'#2558a8'},
+    {label:'Paid', val:'$'+paidTotal.toLocaleString(), color:'#1e6b3d'},
+    {label:'Balance', val:'$'+balance.toLocaleString(), color: balance>0?'#c2460a':'#1e6b3d'},
+  ].map(s => `<div style="background:#f8fafc;border-radius:8px;padding:12px 16px;border:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${s.label}</div>
+      <div style="font-size:20px;font-weight:500;color:${s.color}">${s.val}</div>
+    </div>`).join('');
+  updateBRNextInvoice();
+}
+
+function updateBRNextInvoice() {
+  const el = document.getElementById('br-next-inv-num');
+  if (el) el.textContent = 'FL-' + getNextBRInvoiceNum() + 'BR';
+}
+
+const BR_HOUSE_ABBR = { 'Willow House':'W', 'Ranch House':'R', 'Siltstone House':'S', 'Hazel House':'H', 'Leedy House':'L' };
+const BR_HOUSE_COLOR = {
+  'Willow House': {bg:'#dcfce7',color:'#15803d',border:'#86efac'},
+  'Ranch House':  {bg:'#fef3c7',color:'#92400e',border:'#fcd34d'},
+  'Siltstone House': {bg:'#e0e7ff',color:'#3730a3',border:'#a5b4fc'},
+  'Hazel House':  {bg:'#dbeafe',color:'#1d4ed8',border:'#93c5fd'},
+  'Leedy House':  {bg:'#fce7f3',color:'#be185d',border:'#f9a8d4'},
+};
+
+function getBRStatus(r) {
+  if (r.payment === '\u2713 Paid') return 'paid';
+  if (r.payment === 'Waiting') return 'waiting';
+  if (r.payment === 'Needs attention') return 'issue';
+  if (r.invoice && /^FL-\d+BR$/.test(r.invoice)) return 'billed';
+  return 'waiting';
+}
+
+function brStatusDropdown(r, idx) {
+  const s = getBRStatus(r);
+  const opts = [
+    {v:'waiting',l:'Waiting',bg:'#fff4ee',color:'#c2460a',border:'#f5b48a'},
+    {v:'billed',l:'Invoiced',bg:'#edf5ff',color:'#2558a8',border:'#b0d4f8'},
+    {v:'paid',l:'\u2713 Paid',bg:'#eefbf3',color:'#1e6b3d',border:'#86e0aa'},
+    {v:'issue',l:'Needs attention',bg:'#fff0f0',color:'#a82828',border:'#fcc8c8'},
+  ];
+  const cur = opts.find(o=>o.v===s)||opts[0];
+  return `<select onchange="changeBRStatus(${idx},this.value)" style="padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${cur.border};background:${cur.bg};color:${cur.color};font-family:inherit;outline:none;max-width:130px">
+    ${opts.map(o=>`<option value="${o.v}" ${o.v===s?'selected':''}>${o.l}</option>`).join('')}
+  </select>`;
+}
+
+function changeBRStatus(idx, val) {
+  const r = BR_INVOICE_DATA_ARR[idx];
+  if (val==='paid') r.payment = '\u2713 Paid';
+  else if (val==='billed') r.payment = 'Billed';
+  else if (val==='waiting') r.payment = 'Waiting';
+  else if (val==='issue') r.payment = 'Needs attention';
+  markUnsaved(); brRenderInvoices(); brRenderStats();
 }
 
 function brRenderInvoices() {
-  const rows = BR_INVOICE_DATA_ARR.filter(r => r.month === brActiveMonth);
+  updateBRNextInvoice();
+  const rows = [...BR_INVOICE_DATA_ARR].filter(r => r.month === brActiveMonth);
+  const search = ((document.getElementById('br-search')||{}).value||'').toLowerCase();
+  const sf = (document.getElementById('br-status-filter')||{}).value || 'all';
+  const filtered = rows.filter(r => {
+    if (search) {
+      const hay = ((r.name||'')+' '+(r.cin||'')+' '+(r.invoice||'')).toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    if (sf !== 'all' && getBRStatus(r) !== sf) return false;
+    return true;
+  });
+  const thead = document.getElementById('br-inv-thead');
+  if (thead) thead.innerHTML = `<tr style="background:#fef3c7">
+    <th style="width:9%;color:#78350f">Month</th>
+    <th style="width:11%;color:#78350f">Invoice #</th>
+    <th style="width:16%;color:#78350f">Patient name</th>
+    <th style="width:11%;color:#78350f">CIN</th>
+    <th style="width:9%;color:#78350f">House</th>
+    <th style="width:9%;color:#78350f">First day</th>
+    <th style="width:9%;color:#78350f">Last day</th>
+    <th style="width:10%;color:#78350f">Amount</th>
+    <th style="width:8%;text-align:center;color:#78350f">Paid</th>
+    <th style="width:8%;color:#78350f">Status</th>
+    <th></th>
+  </tr>`;
+  const emptyEl = document.getElementById('br-inv-empty');
+  const countEl = document.getElementById('br-inv-count');
   const tbody = document.getElementById('br-invoice-body');
-  const empty = document.getElementById('br-empty');
   if (!tbody) return;
-  if (!rows.length) { tbody.innerHTML=''; if(empty) empty.style.display=''; return; }
-  if (empty) empty.style.display='none';
-  tbody.innerHTML = rows.map((r,i) => {
+  if (!filtered.length) { tbody.innerHTML=''; if(emptyEl) emptyEl.style.display=''; if(countEl) countEl.textContent=''; return; }
+  if (emptyEl) emptyEl.style.display='none';
+  if (countEl) countEl.textContent = `Showing ${filtered.length} of ${rows.length} records for ${brActiveMonth}`;
+
+  tbody.innerHTML = filtered.map(r => {
     const idx = BR_INVOICE_DATA_ARR.indexOf(r);
+    const locked = isBRMonthLocked(r.month);
     const hasInv = r.invoice && /^FL-\d+BR$/.test(r.invoice);
-    const amt = hasInv ? BR_RATE : 0;
-    return `<tr style="border-bottom:0.5px solid #f0f2f5">
-      <td style="padding:10px 12px"><span style="background:#fef9c3;color:#854d0e;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:600">${r.month}</span></td>
-      <td style="padding:10px 12px;font-size:12px;font-weight:600;color:#1c3455;font-family:DM Mono,monospace" contenteditable="true" onblur="saveBRInvoiceField(${idx},this.textContent)">${r.invoice||''}</td>
-      <td style="padding:10px 12px;font-weight:500">
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;background:#7c3aed;color:#fff;font-size:10px;font-weight:700;flex-shrink:0">B</span>
-          ${r.name||''}
-        </div>
-        <div style="font-size:10px;color:#a82828;margin-top:1px">${r.note||''}</div>
+    const agStatus = getBRAgreementStatus(r.name, r.cin, r.month);
+    const { firstDay: effFirst, lastDay: effLast } = getBREffectiveDates(r);
+    const shownFirst = r.firstDay ? formatDate(r.firstDay) : ((agStatus==='active'||agStatus==='expiring') ? (effFirst||'—') : '—');
+    const shownLast = r.lastDay ? formatDate(r.lastDay) : ((agStatus==='active'||agStatus==='expiring') ? (getBRLastDayFromAgreement(r.name,r.cin,r.month)||(effLast||'—')) : '—');
+    // Amount: invoiced rows always show BR_RATE (invoice # freezes billing, same as FL/PH).
+    // Locked months without an invoice number show nothing — prevents late agreement edits from changing a billed month.
+    const showAmt = hasInv ? BR_RATE : (locked ? 0 : ((agStatus==='active'||agStatus==='expiring') ? BR_RATE : 0));
+    const hc = BR_HOUSE_COLOR[r.house] || {bg:'#f1f5f9',color:'#94a3b8',border:'#e2e8f0'};
+    const houseLetter = BR_HOUSE_ABBR[r.house] || '·';
+    const dotColor = agStatus==='active'?'#22c55e':agStatus==='expiring'?'#eab308':'#ef4444';
+    const dotTitle = agStatus==='active'?'Agreement active':agStatus==='expiring'?'Expires this month':'No active agreement';
+    return `<tr>
+      <td><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${(MONTH_COLORS[r.month]||{bg:'#f0f2f5'}).bg};color:${(MONTH_COLORS[r.month]||{text:'#666'}).text}">${r.month}</span></td>
+      <td class="inv-cell">
+        <span contenteditable="true" onblur="saveBRInvoiceField(${idx},this.textContent)"
+          style="display:block;min-width:40px;outline:none;border-radius:4px;padding:2px 4px;cursor:text;font-family:'DM Mono',monospace;font-size:12px"
+          onmouseover="this.style.background='#e8f0fe'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#e8f0fe'"
+        >${r.invoice||''}</span>
       </td>
-      <td style="padding:10px 12px;font-size:12px;color:#5d6b82;font-family:DM Mono,monospace">${r.cin||''}</td>
-      <td style="padding:10px 12px;font-size:12px;color:#5d6b82">${r.house||''}</td>
-      <td style="padding:10px 12px;font-size:12px;color:#5d6b82">$${BR_RATE.toLocaleString()}</td>
-      <td style="padding:10px 12px;font-size:13px;font-weight:600;color:${amt>0?'#1e6b3d':'#94a3b8'}">${amt>0?'$'+amt.toLocaleString():'—'}</td>
-      <td style="padding:10px 12px">
-        <select onchange="saveBRField(${idx},'payment',this.value)" style="font-size:11px;border-radius:6px;border:1px solid #e2e8f0;padding:3px 6px;font-family:inherit;color:${r.payment==='✓ Paid'?'#1e6b3d':'#c05621'}">
-          <option ${!r.payment||r.payment==='Billed'?'selected':''}>Billed</option>
-          <option ${r.payment==='✓ Paid'?'selected':''}>✓ Paid</option>
-          <option ${r.payment==='Waiting'?'selected':''}>Waiting</option>
+      <td class="name-cell">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span title="${r.house||'No house assigned'}" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:3px;font-size:9px;font-weight:800;flex-shrink:0;background:${hc.bg};color:${hc.color};border:1.5px solid ${hc.border}">${houseLetter}</span>
+          <span title="${dotTitle}" style="width:9px;height:9px;border-radius:50%;flex-shrink:0;background:${dotColor};display:inline-block"></span>
+          <span contenteditable="true" onblur="BR_INVOICE_DATA_ARR[${idx}].name=this.textContent.trim();markUnsaved()"
+            style="display:inline-block;outline:none;border-radius:4px;padding:2px 4px;cursor:text;font-weight:500"
+            onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'"
+          >${r.name||''}</span>
+        </div>
+        <div contenteditable="true" onblur="BR_INVOICE_DATA_ARR[${idx}].note=this.textContent.trim();markUnsaved()"
+          style="font-size:10px;color:#a82828;outline:none;min-width:20px;cursor:text;margin-top:1px;margin-left:20px" title="Click to add note"
+        >${r.note||''}</div>
+      </td>
+      <td class="cin-cell"><span contenteditable="true" onblur="BR_INVOICE_DATA_ARR[${idx}].cin=this.textContent.trim();markUnsaved()"
+        style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);cursor:text"
+        onmouseover="this.style.background='#e8f0fe'" onmouseout="if(document.activeElement!==this)this.style.background=''"
+      >${r.cin||''}</span></td>
+      <td style="font-size:12px;color:var(--muted)">
+        <select onchange="BR_INVOICE_DATA_ARR[${idx}].house=this.value;markUnsaved();brRenderInvoices()" style="font-size:11px;border:none;background:transparent;font-family:inherit;color:var(--muted);cursor:pointer">
+          <option value="" ${!r.house?'selected':''}>—</option>
+          <option ${r.house==='Willow House'?'selected':''}>Willow House</option>
+          <option ${r.house==='Ranch House'?'selected':''}>Ranch House</option>
+          <option ${r.house==='Siltstone House'?'selected':''}>Siltstone House</option>
+          <option ${r.house==='Hazel House'?'selected':''}>Hazel House</option>
+          <option ${r.house==='Leedy House'?'selected':''}>Leedy House</option>
         </select>
       </td>
-      <td style="padding:10px 12px"><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px;padding:2px 6px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0" onclick="deleteBRRow(${idx})">&#x2715;</button></td>
+      <td style="font-size:12px;color:var(--muted)">
+        <span contenteditable="true" onblur="BR_INVOICE_DATA_ARR[${idx}].firstDay=this.textContent.trim();markUnsaved();brRenderInvoices()"
+          style="display:block;outline:none;border-radius:4px;padding:2px 4px;cursor:text;min-width:30px"
+          onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'"
+        >${shownFirst}</span>
+      </td>
+      <td style="font-size:12px;color:var(--muted)">
+        <span contenteditable="true" onblur="BR_INVOICE_DATA_ARR[${idx}].lastDay=this.textContent.trim();markUnsaved();brRenderInvoices()"
+          style="display:block;outline:none;border-radius:4px;padding:2px 4px;cursor:text;min-width:30px"
+          onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'"
+        >${shownLast}</span>
+      </td>
+      <td class="amount-cell">
+        <span style="font-weight:600;color:${showAmt>0?'#1e6b3d':'#94a3b8'}">${showAmt>0?'$'+showAmt.toLocaleString():'—'}</span>
+      </td>
+      <td style="text-align:center;padding:4px">
+        ${(()=>{
+          if (!showAmt) return '<span style="color:#94a3b8;font-size:11px">—</span>';
+          const actual = r.actualPaid != null ? r.actualPaid : showAmt;
+          const diff = Math.round((parseFloat(actual) - showAmt) * 100) / 100;
+          if (diff === 0) return `<span style="display:inline-flex;align-items:center;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#eefbf3;color:#1e6b3d;border:1px solid #86e0aa;cursor:pointer" onclick="editBRActualPaid(${idx},${showAmt},${actual})" title="Click to edit">✓ Match</span>`;
+          if (diff < 0) return `<span style="display:inline-flex;align-items:center;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#fff0f0;color:#a82828;border:1px solid #fcc8c8;cursor:pointer" onclick="editBRActualPaid(${idx},${showAmt},${actual})" title="Click to edit">Short $${Math.abs(diff).toLocaleString()}</span>`;
+          return `<span style="display:inline-flex;align-items:center;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#eefbf3;color:#1e6b3d;border:1px solid #86e0aa;cursor:pointer" onclick="editBRActualPaid(${idx},${showAmt},${actual})" title="Click to edit">Over $${diff.toLocaleString()}</span>`;
+        })()}
+      </td>
+      <td>${brStatusDropdown(r,idx)}</td>
+      <td style="text-align:center;padding:4px">
+        <button onclick="deleteBRRow(${idx})" title="Remove from ${r.month}"
+          style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:14px;padding:2px 6px;border-radius:4px">&#x2715;</button>
+      </td>
     </tr>`;
   }).join('');
+}
+
+function editBRActualPaid(idx, invoiced, current) {
+  const val = prompt('Actual amount paid for this patient:', current);
+  if (val === null) return;
+  const num = parseFloat(val);
+  if (isNaN(num)) { showToast('Enter a valid number','error'); return; }
+  BR_INVOICE_DATA_ARR[idx].actualPaid = num;
+  markUnsaved(); brRenderInvoices();
 }
 
 function saveBRInvoiceField(idx, val) {
@@ -6540,7 +7081,7 @@ function deleteBRRow(idx) {
   markUnsaved(); brRenderInvoices(); brRenderStats();
 }
 
-function toggleBRAddForm() {
+function toggleBRInvoiceAddForm() {
   const f = document.getElementById('br-add-form');
   if (f) f.classList.toggle('visible');
 }
@@ -6556,7 +7097,7 @@ function confirmAddBRPatient() {
   BR_INVOICE_DATA_ARR.push({ month: brActiveMonth, invoice: '', name, cin, house, payment: 'Billed', note: '' });
   ['br-f-name','br-f-cin','br-f-auth'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('br-f-house').value='';
-  toggleBRAddForm();
+  toggleBRInvoiceAddForm();
   markUnsaved(); syncNow();
   showToast('✓ ' + name + ' added to Bedrock');
   if (brInnerTab === 'agreements') renderBRAgreements();
@@ -6601,8 +7142,12 @@ function addBREligibility() {
 
 // ── Assign Invoice Numbers ─────────────────────────────────────────────────
 function openBRAssignModal() {
-  const eligible = BR_INVOICE_DATA_ARR.filter(r => r.month===brActiveMonth && r.name && !r.invoice);
-  if (!eligible.length) { showToast('All patients already have invoice numbers!'); return; }
+  const eligible = BR_INVOICE_DATA_ARR.filter(r => {
+    if (r.month !== brActiveMonth || !r.name || r.invoice) return false;
+    const s = getBRAgreementStatus(r.name, r.cin, r.month);
+    return s === 'active' || s === 'expiring';
+  });
+  if (!eligible.length) { showToast('No patients with an active agreement and no invoice number yet'); return; }
   const nextNum = getNextBRInvoiceNum();
   document.getElementById('br-assign-month').textContent = brActiveMonth;
   document.getElementById('br-assign-start').textContent = 'FL-' + nextNum + 'BR';
@@ -6651,13 +7196,13 @@ function getNextBRInvoiceNum() {
 function confirmBRAssign() {
   const list = document.getElementById('br-assign-list');
   const eligible = list._eligible;
-  let next = getNextBRInvoiceNum(), count=0;
+  let next = getNextBRInvoiceNum(), count=0, monthAssigned = brActiveMonth;
   eligible.forEach((r,i) => {
     const cb = document.getElementById('br_ai_'+i);
-    if (cb && cb.checked) { r.invoice='FL-'+next+'BR'; r.payment='Billed'; next++; count++; }
+    if (cb && cb.checked) { r.invoice='FL-'+next+'BR'; r.payment='Billed'; monthAssigned = r.month; next++; count++; }
   });
   closeBRAssignModal();
-  if (count>0) { markUnsaved(); syncNow(); showToast('✓ Assigned '+count+' Bedrock invoice'+(count>1?'s':'')); brRenderInvoices(); brRenderStats(); }
+  if (count>0) { lockBRMonth(monthAssigned); showToast('✓ Assigned '+count+' Bedrock invoice'+(count>1?'s':'')+' — '+monthAssigned+' locked'); brRenderInvoices(); brRenderStats(); }
 }
 
 // ── Copy to Next Month ─────────────────────────────────────────────────────
@@ -6693,7 +7238,7 @@ function confirmBRCopy() {
   if (count>0) { brActiveMonth=nextMonth; markUnsaved(); syncNow(); brRenderPills(); showToast('✓ Copied '+count+' patient'+(count>1?'s':'')+' to '+nextMonth); }
 }
 
-// ── Print Invoices ─────────────────────────────────────────────────────────
+// ── Print Invoices (single combined invoice for all patients) ──────────────
 function openBRPrintAllModal() {
   const rows = BR_INVOICE_DATA_ARR.filter(r=>r.month===brActiveMonth&&r.name&&r.invoice);
   if (!rows.length) { showToast('No invoiced patients for '+brActiveMonth,'error'); return; }
@@ -6710,36 +7255,40 @@ function closeBRPrintAllModal() { document.getElementById('br-print-all-modal').
 function confirmBRPrintAll() {
   const list = document.getElementById('br-print-list');
   const rows = list._rows;
-  _brPrintQueue = [];
+  const selected = [];
   rows.forEach((r,i) => {
     const cb = document.getElementById('br_pr_'+i);
-    if (cb&&cb.checked) _brPrintQueue.push(BR_INVOICE_DATA_ARR.indexOf(r));
+    if (cb&&cb.checked) selected.push(r);
   });
   closeBRPrintAllModal();
-  if (!_brPrintQueue.length) { showToast('No patients selected'); return; }
-  showToast('✓ Opening '+_brPrintQueue.length+' invoice'+(_brPrintQueue.length>1?' — close each to open the next':''));
-  openNextBRInvoice();
-}
-function openNextBRInvoice() {
-  if (!_brPrintQueue.length) return;
-  const idx = _brPrintQueue.shift();
-  openBRInvoice(idx);
+  if (!selected.length) { showToast('No patients selected'); return; }
+  openBRCombinedInvoice(selected);
 }
 function openBRInvoice(idx) {
+  // Single-patient invoice is still available for one-off printing from elsewhere
   const r = BR_INVOICE_DATA_ARR[idx];
   if (!r) return;
+  openBRCombinedInvoice([r]);
+}
+function openBRCombinedInvoice(rows) {
+  if (!rows || !rows.length) return;
   const invoiceDate = (new Date().getMonth()+1)+'/1/'+(new Date().getFullYear());
   const dueDate = addDays(invoiceDate, 30);
-  const nameParts = (r.name||'').split(' ');
-  const nameShort = nameParts.length>1 ? nameParts[0][0]+nameParts[nameParts.length-1] : r.name;
-  document.title = (r.invoice||'Draft')+'_'+nameShort+'_'+(r.month||'').slice(0,3)+'26_BR';
-  document.getElementById('inv-toolbar-title').textContent = (r.invoice||'Draft') + ' — ' + r.name;
+  const month = rows[0].month || brActiveMonth;
+  const total = rows.length * BR_RATE;
+  const invoiceLabel = rows.length === 1 ? (rows[0].invoice||'Draft') : 'Bedrock ' + month;
+  document.title = invoiceLabel.replace(/\s+/g,'_') + '_' + month.slice(0,3) + '26_BR';
+  document.getElementById('inv-toolbar-title').textContent = invoiceLabel + ' — ' + rows.length + ' patient' + (rows.length>1?'s':'');
+  const bodyRows = rows.map(r =>
+    '<tr><td>Monthly Residential Services</td><td>'+(r.invoice||'—')+'</td><td>'+r.name+'</td><td>'+(r.cin||'—')+'</td><td>'+(r.house||'—')+'</td><td>$'+BR_RATE.toLocaleString()+'/month</td><td>$'+BR_RATE.toLocaleString()+'.00</td></tr>'
+  ).join('');
   document.getElementById('invoice-body').innerHTML =
     '<div class="inv-header"><div class="inv-logo">Foundation Living</div>' +
-    '<div class="inv-meta">Invoice #: <strong>'+(r.invoice||'Pending')+'</strong><br>Date: <strong>'+invoiceDate+'</strong><br>Due: <strong>'+dueDate+'</strong><br>Amount due: <strong style="color:#3d7a2e">$'+BR_RATE.toLocaleString()+'.00</strong></div></div>' +
+    '<div class="inv-meta">Invoice date: <strong>'+invoiceDate+'</strong><br>Due: <strong>'+dueDate+'</strong><br>Patients: <strong>'+rows.length+'</strong><br>Amount due: <strong style="color:#3d7a2e">$'+total.toLocaleString()+'.00</strong></div></div>' +
     '<div class="inv-to"><div class="inv-label">Bill To</div><strong>Bedrock Recovery</strong></div>' +
-    '<table class="inv-table"><thead><tr><th>Description</th><th>Patient</th><th>CIN</th><th>House</th><th>Rate</th><th>Amount</th></tr></thead><tbody>' +
-    '<tr><td>Monthly Residential Services</td><td>'+r.name+'</td><td>'+(r.cin||'—')+'</td><td>'+(r.house||'—')+'</td><td>$'+BR_RATE.toLocaleString()+'/month</td><td>$'+BR_RATE.toLocaleString()+'.00</td></tr>' +
+    '<table class="inv-table"><thead><tr><th>Description</th><th>Invoice #</th><th>Patient</th><th>CIN</th><th>House</th><th>Rate</th><th>Amount</th></tr></thead><tbody>' +
+    bodyRows +
+    '<tr style="font-weight:700"><td colspan="6" style="text-align:right">Total</td><td>$'+total.toLocaleString()+'.00</td></tr>' +
     '</tbody></table>' +
     '<div class="inv-notes"><div class="inv-notes-label">Notes / Terms</div>Services provided: Residential care and housing<br>Payment due within 30 days of invoice date</div>' +
     '<div class="inv-footer">Please send payment to: Foundation Living · 531 Eureka Avenue, Lodi CA 95240</div>';
@@ -6754,13 +7303,13 @@ function openBRInvoice(idx) {
 function exportBRInvoiceCSV() {
   const rows = BR_INVOICE_DATA_ARR.filter(r=>r.month===brActiveMonth&&r.name);
   if (!rows.length) { showToast('No Bedrock invoices for '+brActiveMonth,'error'); return; }
-  const lines = [['Invoice #','Patient Name','CIN','House','Rate','Amount'].join(',')];
+  const lines = [['Invoice #','Patient Name','CIN','House','First Day','Last Day','Rate','Amount'].join(',')];
   rows.forEach(r => {
     const amt = r.invoice ? BR_RATE : '';
-    lines.push([r.invoice||'','"'+(r.name||'').replace(/"/g,'""')+'"',r.cin||'',r.house||'',BR_RATE,amt].join(','));
+    lines.push([r.invoice||'','"'+(r.name||'').replace(/"/g,'""')+'"',r.cin||'',r.house||'',r.firstDay||'',r.lastDay||'',BR_RATE,amt].join(','));
   });
   const total = rows.filter(r=>r.invoice).reduce((s)=>s+BR_RATE, 0);
-  lines.push(',,,Total,,'+total);
+  lines.push(',,,,,Total,,'+total);
   const blob = new Blob([lines.join('\n')],{type:'text/csv'});
   const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='BR_Invoices_'+brActiveMonth+'_2026.csv'; a.click();
@@ -6771,66 +7320,92 @@ function exportBRInvoiceCSV() {
 // BR data is included in syncNow payload (see syncNow function)
 
 // ── BR Agreements ──────────────────────────────────────────────────────────
-function switchBRAgTab(tab) {
-  currentBRAgTab = tab;
-  ['active','completed'].forEach(t => {
-    const btn = document.getElementById('br-ag-' + t + '-btn');
-    if (btn) btn.classList.toggle('active', t === tab);
-  });
-  renderBRAgreements();
-}
-
-function getBRAgStatus(r) {
-  const auth = (r['Auth Date']||'').toString();
-  if (auth.toLowerCase().includes('ref needed')) return 'pending';
-  const expStr = r['Agreement Exp.'];
-  if (!expStr) return 'none';
-  const exp = new Date(expStr);
-  if (isNaN(exp)) return 'none';
-  const today = new Date(); today.setHours(0,0,0,0);
-  const days = Math.round((exp - today) / 86400000);
-  if (days < 0) return 'expired';
-  if (days <= 14) return 'urgent';
-  if (days <= 45) return 'warning';
+function getBRAgStatus(row) {
+  const exp = row['Agreement Exp.'], auth = (row['Auth Date']||'');
+  if (!exp) { return auth.toLowerCase().includes('pending') || auth.toLowerCase().includes('ref needed') ? 'pending' : 'other'; }
+  if (exp==='DISCHARGED EARLY') return 'discharged';
+  if (exp==='WALKAWAY') return 'walkaway';
+  const d = getDays(exp);
+  if (d===null) return 'other';
+  if (d<=31) return 'urgent';
+  if (d<=45) return 'warning';
   return 'ok';
 }
 
 function brExpBadge(r) {
-  const expStr = r['Agreement Exp.'];
-  if (!expStr) return '<span style="color:#94a3b8;font-size:12px">—</span>';
-  const exp = new Date(expStr);
-  if (isNaN(exp)) return '<span style="color:#94a3b8;font-size:12px">' + expStr + '</span>';
-  const today = new Date(); today.setHours(0,0,0,0);
-  const days = Math.round((exp - today) / 86400000);
-  const fmt = (exp.getMonth()+1) + '/' + exp.getDate() + '/' + String(exp.getFullYear()).slice(2);
-  const color = days < 0 ? '#c53030' : days <= 14 ? '#c53030' : days <= 45 ? '#c05621' : '#1e6b3d';
-  const bg = days < 0 ? '#fff5f5' : days <= 14 ? '#fff5f5' : days <= 45 ? '#fff8f0' : '#f0f7ed';
-  const border = days < 0 ? '#fca5a5' : days <= 14 ? '#fca5a5' : days <= 45 ? '#fed7aa' : '#86e0aa';
-  const label = days < 0 ? 'Expired ' + fmt : days === 0 ? 'Expires today' : days <= 14 ? fmt + ' (' + days + 'd)' : fmt;
-  return '<span style="padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;background:' + bg + ';color:' + color + ';border:1px solid ' + border + '">' + label + '</span>';
+  const exp = r['Agreement Exp.'];
+  if (!exp) return '<span style="color:#94a3b8;font-size:12px">—</span>';
+  if (exp === 'DISCHARGED EARLY' || exp === 'WALKAWAY') return '<span style="color:#94a3b8;font-size:12px">' + exp + '</span>';
+  const d = getDays(exp);
+  const dateObj = safeParseDate(exp);
+  const fmt = !isNaN(dateObj) ? String(dateObj.getMonth()+1).padStart(2,'0')+'/'+String(dateObj.getDate()).padStart(2,'0')+'/'+dateObj.getFullYear() : exp;
+  if (d===null) return '<span style="color:#94a3b8;font-size:12px">' + fmt + '</span>';
+  const color = d<0?'#c53030':d<=31?'#c53030':d<=45?'#c05621':'#1e6b3d';
+  const bg = d<0?'#fff5f5':d<=31?'#fff5f5':d<=45?'#fff8f0':'#f0f7ed';
+  const border = d<0?'#fca5a5':d<=31?'#fca5a5':d<=45?'#fed7aa':'#86e0aa';
+  const label = d<0 ? 'Expired '+fmt : d===0 ? 'Expires today' : d<=31 ? fmt+' ('+d+'d)' : fmt;
+  return '<span style="padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;background:'+bg+';color:'+color+';border:1px solid '+border+'">'+label+'</span>';
+}
+
+function renderBRAgStats() {
+  const d = BR_TRACKER;
+  const urgent = d.filter(r=>getBRAgStatus(r)==='urgent').length;
+  const warning = d.filter(r=>getBRAgStatus(r)==='warning').length;
+  const ok = d.filter(r=>getBRAgStatus(r)==='ok').length;
+  const pending = d.filter(r=>getBRAgStatus(r)==='pending').length;
+  const el = document.getElementById('br-ag-stats');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="inv-stat"><div class="inv-stat-label">Urgent (≤31d)</div><div class="inv-stat-val" style="color:#c53030">${urgent}</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">Warning (≤45d)</div><div class="inv-stat-val" style="color:#c05621">${warning}</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">On track</div><div class="inv-stat-val" style="color:#276749">${ok}</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">Pending</div><div class="inv-stat-val">${pending}</div></div>`;
+}
+
+function switchBRAgTab(tab) {
+  currentBRAgTab = tab;
+  const activeBtn = document.getElementById('br-ag-tab-active');
+  const compBtn = document.getElementById('br-ag-tab-completed');
+  if (activeBtn) activeBtn.classList.toggle('active', tab==='active');
+  if (compBtn) compBtn.classList.toggle('active', tab==='completed');
+  const filterEl = document.getElementById('br-ag-filter');
+  if (filterEl) filterEl.style.display = tab==='active' ? '' : 'none';
+  renderBRAgreements();
+}
+
+function toggleBRAddForm() {
+  const f = document.getElementById('br-ag-add-form');
+  if (f) f.classList.toggle('visible');
+}
+
+function addBRAgreementPatient() {
+  const name = (document.getElementById('br-ag-f-name').value||'').trim();
+  if (!name) { showToast('Patient name required','error'); return; }
+  const cin = (document.getElementById('br-ag-f-cin').value||'').trim();
+  const house = (document.getElementById('br-ag-f-house').value||'').trim();
+  const auth = (document.getElementById('br-ag-f-auth').value||'').trim();
+  const expRaw = (document.getElementById('br-ag-f-exp').value||'').trim();
+  const comment = (document.getElementById('br-ag-f-comment').value||'').trim();
+  let exp = '';
+  const p = expRaw.split('/');
+  if (p.length===3) { const yr=p[2].length===2?'20'+p[2]:p[2]; exp = yr+'-'+p[0].padStart(2,'0')+'-'+p[1].padStart(2,'0'); }
+  else exp = expRaw;
+  BR_TRACKER.push({ 'Patient Name': name, 'CIN': cin, 'House': house, 'Auth Date': auth, 'Agreement Exp.': exp, 'Comments': comment });
+  ['br-ag-f-name','br-ag-f-cin','br-ag-f-auth','br-ag-f-exp','br-ag-f-comment'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('br-ag-f-house').value = '';
+  toggleBRAddForm();
+  markUnsaved(); syncNow(); renderBRAgreements();
+  showToast('✓ ' + name + ' added to Bedrock agreements');
 }
 
 function renderBRAgreements() {
   updateBRRefNeededBadge();
   const rawData = currentBRAgTab === 'active' ? BR_TRACKER : (BR_COMPLETED||[]);
+  const data = currentBRAgTab === 'active' ? sortPHByAgreement(rawData) : rawData;
   const search = ((document.getElementById('br-ag-search')||{}).value||'').toLowerCase();
   const filter = (document.getElementById('br-ag-filter')||{value:'all'}).value;
-
-  // Stats
-  const statsEl = document.getElementById('br-ag-stats');
-  if (statsEl) {
-    const active = BR_TRACKER.length;
-    const urgent = BR_TRACKER.filter(r => getBRAgStatus(r) === 'urgent').length;
-    const warning = BR_TRACKER.filter(r => getBRAgStatus(r) === 'warning').length;
-    const pending = BR_TRACKER.filter(r => getBRAgStatus(r) === 'pending').length;
-    statsEl.innerHTML = `
-      <div style="background:#f0f7ed;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Active</div><div style="font-size:18px;font-weight:700;color:#1c2f4a">${active}</div></div>
-      <div style="background:#fff5f5;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Urgent</div><div style="font-size:18px;font-weight:700;color:#c53030">${urgent}</div></div>
-      <div style="background:#fff8f0;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Expiring Soon</div><div style="font-size:18px;font-weight:700;color:#c05621">${warning}</div></div>
-      <div style="background:#f0f7ed;border-radius:10px;padding:10px 14px"><div style="font-size:10px;color:#5d6b82;text-transform:uppercase;font-weight:600;margin-bottom:2px">Pending</div><div style="font-size:18px;font-weight:700;color:#7c3aed">${pending}</div></div>`;
-  }
-
-  let rows = rawData.filter(r => {
+  renderBRAgStats();
+  let rows = data.filter(r => {
     const name = (r['Patient Name']||'').toLowerCase();
     const cin = (r['CIN']||'').toLowerCase();
     if (search && !name.includes(search) && !cin.includes(search)) return false;
@@ -6843,7 +7418,6 @@ function renderBRAgreements() {
     }
     return true;
   });
-
   const thead = document.getElementById('br-ag-thead');
   if (thead) thead.innerHTML = `<tr style="background:#fef3c7">
     <th style="width:20%;color:#78350f">Patient name</th>
@@ -6854,44 +7428,36 @@ function renderBRAgreements() {
     <th style="width:20%;color:#78350f">Comments</th>
     <th style="width:11%;text-align:center;color:#78350f">Re-auth sent</th>
   </tr>`;
-
-  const tbody = document.getElementById('br-agr-body');
   const emptyEl = document.getElementById('br-ag-empty');
   const countEl = document.getElementById('br-ag-count');
+  const tbody = document.getElementById('br-agr-body');
   if (!tbody) return;
-  if (!rows.length) { tbody.innerHTML = ''; if(emptyEl) emptyEl.style.display=''; if(countEl) countEl.textContent=''; return; }
-  if (emptyEl) emptyEl.style.display = 'none';
-  if (countEl) countEl.textContent = 'Showing ' + rows.length + ' of ' + rawData.length + ' records';
-
-  tbody.innerHTML = rows.map(r => {
-    const ri = rawData.indexOf(r);
-    const s = getBRAgStatus(r);
-    const dotColor = s==='ok'?'#22c55e':s==='warning'?'#eab308':s==='urgent'?'#ef4444':s==='pending'?'#7c3aed':'#94a3b8';
-    return `<tr style="border-bottom:0.5px solid #f0f2f5">
-      <td style="padding:8px 10px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};flex-shrink:0"></span>
-          <span contenteditable="true" onblur="saveBRAgField(${ri},'Patient Name',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-weight:500;color:#1a202c;cursor:text" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${r['Patient Name']||''}</span>
-        </div>
-      </td>
-      <td style="padding:8px 10px"><span contenteditable="true" onblur="saveBRAgField(${ri},'CIN',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;color:#718096;font-size:12px;cursor:text;font-family:'DM Mono',monospace" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${r['CIN']||''}</span></td>
-      <td style="padding:8px 10px"><span contenteditable="true" onblur="saveBRAgField(${ri},'House',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-size:12px;cursor:text" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${r['House']||''}</span></td>
-      <td style="padding:8px 10px"><span contenteditable="true" onblur="saveBRAgField(${ri},'Auth Date',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-size:12px;cursor:text" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${formatDate(r['Auth Date'])||''}</span></td>
-      <td style="padding:8px 10px" id="br-ag-exp-${ri}" onclick="editBRAgExp(${ri})">${brExpBadge(r)}</td>
-      <td style="padding:8px 10px"><span contenteditable="true" onblur="saveBRAgField(${ri},'Comments',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;color:#718096;font-size:12px;cursor:text" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${r['Comments']||''}</span></td>
-      <td style="padding:8px 10px;text-align:center">
+  if (rows.length===0) { tbody.innerHTML=''; if(emptyEl) emptyEl.style.display=''; if(countEl) countEl.textContent=''; return; }
+  if (emptyEl) emptyEl.style.display='none';
+  if (countEl) countEl.textContent = `Showing ${rows.length} of ${data.length} records`;
+  const sourceArr = currentBRAgTab === 'active' ? BR_TRACKER : (BR_COMPLETED||[]);
+  tbody.innerHTML = rows.map((r) => {
+    const ri = sourceArr.indexOf(r);
+    return `<tr>
+      <td><span contenteditable="true" onblur="saveBRAgField(${ri},'Patient Name',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-weight:500;color:#1a202c;cursor:text" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${r['Patient Name']||''}</span></td>
+      <td><span contenteditable="true" onblur="saveBRAgField(${ri},'CIN',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;color:#718096;font-size:12px;cursor:text;font-family:'DM Mono',monospace" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${r['CIN']||''}</span></td>
+      <td><span contenteditable="true" onblur="saveBRAgField(${ri},'House',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-size:12px;cursor:text" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${r['House']||''}</span></td>
+      <td><span contenteditable="true" onblur="saveBRAgField(${ri},'Auth Date',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-size:12px;cursor:text" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${formatDate(r['Auth Date'])||''}</span></td>
+      <td id="br-ag-exp-${ri}" onclick="editBRAgExp(${ri})">${brExpBadge(r)}</td>
+      <td><span contenteditable="true" onblur="saveBRAgField(${ri},'Comments',this.textContent)" style="display:block;outline:none;border-radius:4px;padding:2px 4px;color:#718096;font-size:12px;cursor:text;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'">${r['Comments']||''}</span></td>
+      <td style="text-align:center">
         ${(()=>{
           let sentDate = r.reauthSentDate;
           if (sentDate) { const d=new Date(sentDate); if(!isNaN(d)) sentDate=(d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2); }
           return sentDate
             ? `<div style="display:inline-flex;align-items:center;gap:4px">
                 <span style="padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#eefbf3;color:#1e6b3d;border:1px solid #86e0aa">✓ ${sentDate}</span>
-                <button onclick="clearBRReauthSent(${ri})" title="Clear" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:12px;padding:0" onmouseover="this.style.color='#a82828'" onmouseout="this.style.color='#94a3b8'">×</button>
+                <button onclick="clearBRReauthSent(${ri})" title="Clear" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:12px;padding:0;line-height:1" onmouseover="this.style.color='#a82828'" onmouseout="this.style.color='#94a3b8'">×</button>
                </div>`
             : `<button onclick="markBRReauthSent(${ri})" style="padding:2px 8px;font-size:10px;font-weight:500;border-radius:5px;cursor:pointer;font-family:inherit;background:#f8fafc;color:#64748b;border:1px solid #e2e8f0" onmouseover="this.style.background='#eefbf3';this.style.color='#1e6b3d';this.style.borderColor='#86e0aa'" onmouseout="this.style.background='#f8fafc';this.style.color='#64748b';this.style.borderColor='#e2e8f0'">+ Mark sent</button>`;
         })()}
       </td>
-      ${currentBRAgTab==='active'?`<td style="padding:8px 10px"><button onclick="dischargeBRPatient(${ri})" style="padding:3px 7px;font-size:10px;font-weight:500;border-radius:5px;cursor:pointer;background:#fff0f0;color:#a82828;border:1px solid #fcc8c8;font-family:inherit;white-space:nowrap">→ Dc</button></td>`:''}
+      ${currentBRAgTab==='active'?`<td style="width:90px"><button onclick="dischargeBRPatient(${ri})" style="padding:3px 7px;font-size:10px;font-weight:500;border-radius:5px;cursor:pointer;background:#fff0f0;color:#a82828;border:1px solid #fcc8c8;font-family:inherit;white-space:nowrap">→ Dc</button></td>`:''}
     </tr>`;
   }).join('');
 }
@@ -6899,10 +7465,9 @@ function renderBRAgreements() {
 function editBRAgExp(idx) {
   const r = (currentBRAgTab==='active'?BR_TRACKER:BR_COMPLETED)[idx];
   if (!r) return;
-  const current = brExpBadge(r);
   const cell = document.getElementById('br-ag-exp-' + idx);
   if (!cell) return;
-  const exp = r['Agreement Exp.'] ? new Date(r['Agreement Exp.']) : null;
+  const exp = r['Agreement Exp.'] ? safeParseDate(r['Agreement Exp.']) : null;
   const fmt = exp && !isNaN(exp) ? (exp.getMonth()+1)+'/'+(exp.getDate())+'/'+exp.getFullYear() : '';
   cell.innerHTML = `<input type="text" value="${fmt}" placeholder="MM/DD/YYYY" style="width:100%;padding:3px 6px;font-size:12px;border:1px solid #7c3aed;border-radius:5px;font-family:inherit" onblur="saveBRAgField(${idx},'Agreement Exp.',this.value);renderBRAgreements()" onkeydown="if(event.key==='Enter'){this.blur()}" autofocus>`;
   cell.querySelector('input').focus();
@@ -6945,17 +7510,6 @@ function deleteBRAg(idx) {
   markUnsaved(); renderBRAgreements();
 }
 
-function openBRAddAgreement() {
-  const name = prompt('Patient full name:'); if (!name) return;
-  const cin = prompt('CIN:') || '';
-  const house = prompt('House (Willow/Ranch/Siltstone/Hazel/Leedy):') || '';
-  const auth = prompt('Auth date (MM/DD/YYYY):') || '';
-  const exp = prompt('Agreement expiry (MM/DD/YYYY):') || '';
-  const expFmt = (function(s){ const p=s.split('/'); return p.length===3?(p[2].length===2?'20'+p[2]:p[2])+'-'+p[0].padStart(2,'0')+'-'+p[1].padStart(2,'0'):''; })(exp);
-  BR_TRACKER.push({ 'Patient Name': name, 'CIN': cin, 'House': house, 'Auth Date': auth, 'Agreement Exp.': expFmt });
-  markUnsaved(); syncNow(); renderBRAgreements();
-  showToast('✓ ' + name + ' added to Bedrock agreements');
-}
 
 // ── BR Payments ────────────────────────────────────────────────────────────
 
