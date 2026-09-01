@@ -3409,7 +3409,10 @@ function openReauthModal() {
       const daysLeft = Math.round((exp - today) / 86400000);
       const dot = daysLeft < 0 ? '#ef4444' : daysLeft <= 31 ? '#eab308' : '#22c55e';
       const expStr = (exp.getMonth()+1) + '/' + exp.getDate() + '/' + String(exp.getFullYear()).slice(2);
-      const notes = r['Comments'] ? '<div style="font-size:11px;color:#6b7589;margin-top:3px;padding-left:25px">' + r['Comments'] + '</div>' : '';
+      const authRaw = r['Auth Date'];
+      const authDate = authRaw ? safeParseDate(authRaw) : null;
+      const authStr = authDate && !isNaN(authDate) ? (authDate.getMonth()+1) + '/' + authDate.getDate() + '/' + String(authDate.getFullYear()).slice(2) : (authRaw || '—');
+      const notes = r['Comments'] ? '<div style="font-size:11px;color:#b8562e;font-weight:500;margin-top:3px;padding-left:25px">📝 ' + r['Comments'] + '</div>' : '';
       const checked = daysLeft < 0 ? 'checked' : '';
       const rawSentDate = r.reauthSentDate;
       let sentDate = null;
@@ -3420,13 +3423,14 @@ function openReauthModal() {
       const sentBadge = sentDate
         ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#eefbf3;color:#1e6b3d;border:1px solid #86e0aa;margin-left:6px">✓ Sent ' + sentDate + '</span>'
         : '<button onclick="markReauthSent(' + i + ')" style="margin-left:6px;padding:2px 8px;font-size:10px;font-weight:600;border-radius:5px;cursor:pointer;font-family:inherit;background:#fff4ee;color:#c2460a;border:1px solid #f5b48a;transition:background 0.15s" onmouseover="this.style.background=\'#fde8d8\'" onmouseout="this.style.background=\'#fff4ee\'">Mark sent</button>';
-      return '<div id="reauth-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5">' +
+      return '<div id="reauth-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5;' + (r['Comments']?'background:#fff8f0':'') + '">' +
         '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">' +
         '<input type="checkbox" id="reauth_' + i + '" ' + checked + ' style="margin-top:2px;width:15px;height:15px;accent-color:#c2460a;flex-shrink:0">' +
         '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
         '<span style="width:8px;height:8px;border-radius:50%;background:' + dot + ';display:inline-block;flex-shrink:0"></span>' +
         '<span style="font-size:13px;font-weight:500;color:#1c2f4a">' + r['Patient Name'] + '</span>' +
-        '<span style="font-size:11px;color:#6b7589">Exp: ' + expStr + '</span>' +
+        '<span style="font-size:11px;color:#6b7589">Auth: ' + authStr + '  ·  Exp: ' + expStr + '</span>' +
+        '<span style="font-size:11px;font-weight:600;color:#c2460a">Need re-auth</span>' +
         sentBadge +
         '</div>' + notes + '</div></label></div>';
     }).join('');
@@ -3524,7 +3528,7 @@ function sendReauthEmail() {
     const cin = r['CIN'] ? 'CIN: ' + r['CIN'] : 'CIN: \u2014';
     const todayDateOnly = new Date(); todayDateOnly.setHours(0,0,0,0);
     const verb = (!isNaN(exp) && exp >= todayDateOnly) ? 'Expires' : 'Expired';
-    return (i+1) + '. ' + r['Patient Name'] + ' \u2014 ' + cin + ' \u2014 ' + verb + ' ' + expStr;
+    return (i+1) + '. ' + r['Patient Name'] + ' \u2014 ' + cin + ' \u2014 ' + verb + ' ' + expStr + ' \u2014 NEED RE-AUTH';
   }).join('\n');
 
   const body = encodeURIComponent('Hi Shadya,\n\nThe following Foundation Living patients are due for re-authorization:\n\n' + lines + '\n\nThank you,\nMoses Rodriguez\nFoundation Living\n408-640-0116');
@@ -3543,7 +3547,7 @@ function openNewAgreementModal() {
     list.innerHTML = '<div style="padding:16px;text-align:center;color:#6b7589;font-size:13px">No patients missing an agreement</div>';
   } else {
     list.innerHTML = patients.map((r, i) => {
-      const notes = r['Comments'] ? '<div style="font-size:11px;color:#6b7589;margin-top:3px;padding-left:25px">' + r['Comments'] + '</div>' : '';
+      const notes = r['Comments'] ? '<div style="font-size:11px;color:#b8562e;font-weight:500;margin-top:3px;padding-left:25px">📝 ' + r['Comments'] + '</div>' : '';
       const rawSentDate = r.newAgreementSentDate;
       let sentDate = null;
       if (rawSentDate) {
@@ -3553,13 +3557,15 @@ function openNewAgreementModal() {
       const sentBadge = sentDate
         ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#eefbf3;color:#1e6b3d;border:1px solid #86e0aa;margin-left:6px">✓ Sent ' + sentDate + '</span>'
         : '';
-      return '<div id="newagreement-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5">' +
+      const statusLabel = sentDate ? 'Still waiting' : 'No agreement on file';
+      const statusColor = sentDate ? '#c05621' : '#6b7589';
+      return '<div id="newagreement-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5;' + (r['Comments']?'background:#fff8f0':'') + '">' +
         '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">' +
         '<input type="checkbox" id="newagreement_' + i + '" checked style="margin-top:2px;width:15px;height:15px;accent-color:#7c3aed;flex-shrink:0">' +
         '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
         '<span style="width:8px;height:8px;border-radius:50%;background:#7c3aed;display:inline-block;flex-shrink:0"></span>' +
         '<span style="font-size:13px;font-weight:500;color:#1c2f4a">' + r['Patient Name'] + '</span>' +
-        '<span style="font-size:11px;color:#6b7589">No agreement on file</span>' +
+        '<span style="font-size:11px;color:' + statusColor + ';font-weight:' + (sentDate?'600':'400') + '">' + statusLabel + '</span>' +
         sentBadge +
         '</div>' + notes + '</div></label></div>';
     }).join('');
@@ -3595,11 +3601,16 @@ function sendNewAgreementEmail() {
 
   const lines = selected.map((r,i) => {
     const cin = r['CIN'] ? 'CIN: ' + r['CIN'] : 'CIN: —';
-    return (i+1) + '. ' + r['Patient Name'] + ' — ' + cin;
+    const followUp = r.newAgreementSentDate ? true : false;
+    return (i+1) + '. ' + r['Patient Name'] + ' — ' + cin + (followUp ? ' (still waiting)' : '');
   }).join('\n');
 
-  const body = encodeURIComponent('Hi Shadya,\n\nThe following Foundation Living patients do not yet have an agreement on file. Please advise on next steps:\n\n' + lines + '\n\nThank you,\nMoses Rodriguez\nFoundation Living\n408-640-0116');
-  const subject = encodeURIComponent('New Agreement Needed — Foundation Living Patients');
+  const anyFollowUp = selected.some(r => r.newAgreementSentDate);
+  const intro = anyFollowUp
+    ? 'Following up on the patients below — still waiting on an agreement to be put in place. Please advise on next steps:'
+    : 'The following Foundation Living patients do not yet have an agreement on file. Please advise on next steps:';
+  const body = encodeURIComponent('Hi Shadya,\n\n' + intro + '\n\n' + lines + '\n\nThank you,\nMoses Rodriguez\nFoundation Living\n408-640-0116');
+  const subject = encodeURIComponent((anyFollowUp ? 'Still Waiting — New Agreement Needed' : 'New Agreement Needed') + ' — Foundation Living Patients');
   window.location.href = 'mailto:s.guerra@mastercareplan.com?subject=' + subject + '&body=' + body;
   closeNewAgreementModal();
   showToast('Opening email client...');
@@ -3628,7 +3639,10 @@ function openPHReauthModal() {
       const daysLeft = Math.round((exp - today) / 86400000);
       const dot = daysLeft < 0 ? '#ef4444' : daysLeft <= 31 ? '#eab308' : '#22c55e';
       const expStr = (exp.getMonth()+1) + '/' + exp.getDate() + '/' + String(exp.getFullYear()).slice(2);
-      const notes = r['Comments'] ? '<div style="font-size:11px;color:#6b7589;margin-top:3px;padding-left:25px">' + r['Comments'] + '</div>' : '';
+      const authRaw = r['Auth Date'];
+      const authDate = authRaw ? safeParseDate(authRaw) : null;
+      const authStr = authDate && !isNaN(authDate) ? (authDate.getMonth()+1) + '/' + authDate.getDate() + '/' + String(authDate.getFullYear()).slice(2) : (authRaw || '—');
+      const notes = r['Comments'] ? '<div style="font-size:11px;color:#b8562e;font-weight:500;margin-top:3px;padding-left:25px">📝 ' + r['Comments'] + '</div>' : '';
       const checked = daysLeft < 0 ? 'checked' : '';
       const rawSentDate = r.reauthSentDate;
       let sentDate = null;
@@ -3639,13 +3653,13 @@ function openPHReauthModal() {
       const sentBadge = sentDate
         ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#eefbf3;color:#1e6b3d;border:1px solid #86e0aa;margin-left:6px">✓ Sent ' + sentDate + '</span>'
         : '';
-      return '<div id="ph-reauth-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5">' +
+      return '<div id="ph-reauth-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5;' + (r['Comments']?'background:#fff8f0':'') + '">' +
         '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">' +
         '<input type="checkbox" id="ph_reauth_' + i + '" ' + checked + ' style="margin-top:2px;width:15px;height:15px;accent-color:#c2460a;flex-shrink:0">' +
         '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
         '<span style="width:8px;height:8px;border-radius:50%;background:' + dot + ';display:inline-block;flex-shrink:0"></span>' +
         '<span style="font-size:13px;font-weight:500;color:#1c2f4a">' + r['Patient Name'] + '</span>' +
-        '<span style="font-size:11px;color:#6b7589">Exp: ' + expStr + '</span>' +
+        '<span style="font-size:11px;color:#6b7589">Auth: ' + authStr + '  ·  Exp: ' + expStr + '</span>' +
         sentBadge +
         '</div>' + notes + '</div></label></div>';
     }).join('');
@@ -3703,7 +3717,7 @@ function openPHNewAgreementModal() {
     list.innerHTML = '<div style="padding:16px;text-align:center;color:#6b7589;font-size:13px">No patients missing an agreement</div>';
   } else {
     list.innerHTML = patients.map((r, i) => {
-      const notes = r['Comments'] ? '<div style="font-size:11px;color:#6b7589;margin-top:3px;padding-left:25px">' + r['Comments'] + '</div>' : '';
+      const notes = r['Comments'] ? '<div style="font-size:11px;color:#b8562e;font-weight:500;margin-top:3px;padding-left:25px">📝 ' + r['Comments'] + '</div>' : '';
       const rawSentDate = r.newAgreementSentDate;
       let sentDate = null;
       if (rawSentDate) {
@@ -3713,7 +3727,7 @@ function openPHNewAgreementModal() {
       const sentBadge = sentDate
         ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#eefbf3;color:#1e6b3d;border:1px solid #86e0aa;margin-left:6px">✓ Sent ' + sentDate + '</span>'
         : '';
-      return '<div id="ph-newagreement-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5">' +
+      return '<div id="ph-newagreement-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5;' + (r['Comments']?'background:#fff8f0':'') + '">' +
         '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">' +
         '<input type="checkbox" id="ph_newagreement_' + i + '" checked style="margin-top:2px;width:15px;height:15px;accent-color:#7c3aed;flex-shrink:0">' +
         '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
@@ -3788,7 +3802,10 @@ function openBRReauthModal() {
       const daysLeft = Math.round((exp - today) / 86400000);
       const dot = daysLeft < 0 ? '#ef4444' : daysLeft <= 31 ? '#eab308' : '#22c55e';
       const expStr = (exp.getMonth()+1) + '/' + exp.getDate() + '/' + String(exp.getFullYear()).slice(2);
-      const notes = r['Comments'] ? '<div style="font-size:11px;color:#6b7589;margin-top:3px;padding-left:25px">' + r['Comments'] + '</div>' : '';
+      const authRaw = r['Auth Date'];
+      const authDate = authRaw ? safeParseDate(authRaw) : null;
+      const authStr = authDate && !isNaN(authDate) ? (authDate.getMonth()+1) + '/' + authDate.getDate() + '/' + String(authDate.getFullYear()).slice(2) : (authRaw || '—');
+      const notes = r['Comments'] ? '<div style="font-size:11px;color:#b8562e;font-weight:500;margin-top:3px;padding-left:25px">📝 ' + r['Comments'] + '</div>' : '';
       const checked = daysLeft < 0 ? 'checked' : '';
       const rawSentDate = r.reauthSentDate;
       let sentDate = null;
@@ -3799,13 +3816,13 @@ function openBRReauthModal() {
       const sentBadge = sentDate
         ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#eefbf3;color:#1e6b3d;border:1px solid #86e0aa;margin-left:6px">✓ Sent ' + sentDate + '</span>'
         : '';
-      return '<div id="br-reauth-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5">' +
+      return '<div id="br-reauth-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5;' + (r['Comments']?'background:#fff8f0':'') + '">' +
         '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">' +
         '<input type="checkbox" id="br_reauth_' + i + '" ' + checked + ' style="margin-top:2px;width:15px;height:15px;accent-color:#c2460a;flex-shrink:0">' +
         '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
         '<span style="width:8px;height:8px;border-radius:50%;background:' + dot + ';display:inline-block;flex-shrink:0"></span>' +
         '<span style="font-size:13px;font-weight:500;color:#1c2f4a">' + r['Patient Name'] + '</span>' +
-        '<span style="font-size:11px;color:#6b7589">Exp: ' + expStr + '</span>' +
+        '<span style="font-size:11px;color:#6b7589">Auth: ' + authStr + '  ·  Exp: ' + expStr + '</span>' +
         sentBadge +
         '</div>' + notes + '</div></label></div>';
     }).join('');
@@ -3863,7 +3880,7 @@ function openBRNewAgreementModal() {
     list.innerHTML = '<div style="padding:16px;text-align:center;color:#6b7589;font-size:13px">No patients missing an agreement</div>';
   } else {
     list.innerHTML = patients.map((r, i) => {
-      const notes = r['Comments'] ? '<div style="font-size:11px;color:#6b7589;margin-top:3px;padding-left:25px">' + r['Comments'] + '</div>' : '';
+      const notes = r['Comments'] ? '<div style="font-size:11px;color:#b8562e;font-weight:500;margin-top:3px;padding-left:25px">📝 ' + r['Comments'] + '</div>' : '';
       const rawSentDate = r.newAgreementSentDate;
       let sentDate = null;
       if (rawSentDate) {
@@ -3873,7 +3890,7 @@ function openBRNewAgreementModal() {
       const sentBadge = sentDate
         ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:#eefbf3;color:#1e6b3d;border:1px solid #86e0aa;margin-left:6px">✓ Sent ' + sentDate + '</span>'
         : '';
-      return '<div id="br-newagreement-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5">' +
+      return '<div id="br-newagreement-row-' + i + '" style="padding:10px 12px;border-bottom:0.5px solid #f0f2f5;' + (r['Comments']?'background:#fff8f0':'') + '">' +
         '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">' +
         '<input type="checkbox" id="br_newagreement_' + i + '" checked style="margin-top:2px;width:15px;height:15px;accent-color:#7c3aed;flex-shrink:0">' +
         '<div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
