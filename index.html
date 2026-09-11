@@ -926,6 +926,7 @@ if (authState === 'owner' || authState === '1') {
             <span></span>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-green" onclick="togglePHEligAddForm()">+ Add Patient</button>
+              <button class="btn btn-navy" onclick="bulkSetPHEligStatus()">⚡ Bulk Status</button>
               <button class="btn btn-gold" onclick="openPHWeeklyCheck()">📅 Log Check Date</button>
               <button class="btn" style="background:#c2460a;color:#fff" onclick="openPHInactiveEmail()">✉ Generate Email</button>
             </div>
@@ -1159,6 +1160,7 @@ if (authState === 'owner' || authState === '1') {
             <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
               <input type="text" class="search-box" id="br-elig-search" placeholder="Search patients..." oninput="renderBREligibility()" style="max-width:280px">
               <button class="btn btn-green" onclick="addBREligibility()">+ Add Patient</button>
+              <button class="btn btn-navy" onclick="bulkSetBREligStatus()">⚡ Bulk Status</button>
             </div>
             <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
@@ -2273,6 +2275,10 @@ function loadFromSheet(onDone) {
       if (data.br_completed) BR_COMPLETED = data.br_completed;
       if (data.br_payments) BR_PAYMENTS = data.br_payments;
       if (data.br_eligibility) BR_ELIGIBILITY = data.br_eligibility;
+      // Backfill: ensure every BR_TRACKER patient exists in BR_ELIGIBILITY (one-time sync for existing data)
+      BR_TRACKER.forEach(r => {
+        if (r['Patient Name']) syncBREligibility(r['Patient Name'], r['CIN'], r['House']);
+      });
       if (data.br_locked_months) BR_LOCKED_MONTHS = data.br_locked_months;
       if (data.pp_beds && data.pp_beds.length>0) PP_BEDS = data.pp_beds;
       if (data.pp_selfpay && data.pp_selfpay.length>0) PP_SELFPAY = data.pp_selfpay;
@@ -7102,6 +7108,17 @@ function toggleBRInvoiceAddForm() {
   const f = document.getElementById('br-add-form');
   if (f) f.classList.toggle('visible');
 }
+function syncBREligibility(name, cin, house) {
+  if (!name) return;
+  const exists = BR_ELIGIBILITY.some(r =>
+    (r.name||'').toLowerCase().trim() === name.toLowerCase().trim() ||
+    (cin && r.cin && r.cin.toLowerCase().trim() === cin.toLowerCase().trim())
+  );
+  if (!exists) {
+    BR_ELIGIBILITY.push({ name, cin: cin||'', house: house||'', status: 'active', notes: '' });
+  }
+}
+
 function confirmAddBRPatient() {
   const name = (document.getElementById('br-f-name').value||'').trim();
   if (!name) { showToast('Patient name required','error'); return; }
@@ -7112,6 +7129,7 @@ function confirmAddBRPatient() {
   BR_TRACKER.push({ 'Patient Name': name, 'CIN': cin, 'House': house, 'Auth Date': auth, 'Agreement Exp.': '' });
   // Add to current month invoices
   BR_INVOICE_DATA_ARR.push({ month: brActiveMonth, invoice: '', name, cin, house, payment: 'Billed', note: '' });
+  syncBREligibility(name, cin, house);
   ['br-f-name','br-f-cin','br-f-auth'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('br-f-house').value='';
   toggleBRInvoiceAddForm();
@@ -7155,6 +7173,20 @@ function addBREligibility() {
   const house = prompt('House:') || '';
   BR_ELIGIBILITY.push({ name, cin, house, status: 'active', notes: '' });
   markUnsaved(); renderBREligibility();
+}
+
+function bulkSetBREligStatus() {
+  const choice = prompt('Set all Bedrock patients to which status?\n\n1 = Active\n2 = Inactive\n3 = Pending\n\nType 1, 2, or 3:');
+  if (!choice) return;
+  const status = ['active','inactive','pending'][parseInt(choice)-1];
+  if (!status) { alert('Invalid choice. Please enter 1, 2, or 3.'); return; }
+  const label = status.charAt(0).toUpperCase() + status.slice(1);
+  const count = BR_ELIGIBILITY.filter(r => !r.movedOut).length;
+  if (!confirm('Set all ' + count + ' Bedrock patients to "' + label + '"?')) return;
+  BR_ELIGIBILITY.forEach(r => { if (!r.movedOut) r.status = status; });
+  markUnsaved();
+  renderBREligibility();
+  showToast('\u2713 ' + count + ' patients set to ' + label);
 }
 
 // ── Assign Invoice Numbers ─────────────────────────────────────────────────
@@ -7408,6 +7440,7 @@ function addBRAgreementPatient() {
   if (p.length===3) { const yr=p[2].length===2?'20'+p[2]:p[2]; exp = yr+'-'+p[0].padStart(2,'0')+'-'+p[1].padStart(2,'0'); }
   else exp = expRaw;
   BR_TRACKER.push({ 'Patient Name': name, 'CIN': cin, 'House': house, 'Auth Date': auth, 'Agreement Exp.': exp, 'Comments': comment });
+  syncBREligibility(name, cin, house);
   ['br-ag-f-name','br-ag-f-cin','br-ag-f-auth','br-ag-f-exp','br-ag-f-comment'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('br-ag-f-house').value = '';
   toggleBRAddForm();
@@ -9072,6 +9105,22 @@ function updateFLSigTimestamp() {
 
 
 
+
+function bulkSetPHEligStatus() {
+  const options = ['Active', 'Inactive', 'Pending'];
+  const choice = prompt('Set all Phoenix Haven patients to which status?\n\n1 = Active\n2 = Inactive\n3 = Pending\n\nType 1, 2, or 3:');
+  if (!choice) return;
+  const status = ['active','inactive','pending'][parseInt(choice)-1];
+  if (!status) { alert('Invalid choice. Please enter 1, 2, or 3.'); return; }
+  const label = status.charAt(0).toUpperCase() + status.slice(1);
+  const count = PH_ELIGIBILITY_DATA.filter(r => !r.movedOut).length;
+  if (!confirm('Set all ' + count + ' Phoenix Haven patients to "' + label + '"?')) return;
+  PH_ELIGIBILITY_DATA.forEach(r => { if (!r.movedOut) r.status = status; });
+  markUnsaved();
+  autoSyncPHEligibility();
+  renderPHEligibility();
+  showToast('\u2713 ' + count + ' patients set to ' + label);
+}
 
 function bulkSetEligStatus() {
   const options = ['Active', 'Inactive', 'Pending'];
