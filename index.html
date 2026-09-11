@@ -1158,23 +1158,35 @@ if (authState === 'owner' || authState === '1') {
           <!-- BR Eligibility Panel -->
           <div id="br-panel-eligibility" style="display:none">
             <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
-              <input type="text" class="search-box" id="br-elig-search" placeholder="Search patients..." oninput="renderBREligibility()" style="max-width:280px">
+              <input type="text" class="search-box" id="br-elig-search" placeholder="Search by name or CIN..." oninput="renderBREligibility()">
+              <select class="filter-select" id="br-elig-filter" onchange="renderBREligibility()">
+                <option value="all">All statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="pending">Pending</option>
+              </select>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;padding:5px 10px;border:0.5px solid var(--border);border-radius:6px;background:var(--bg);white-space:nowrap">
+                <input type="checkbox" id="br-elig-show-moved" onchange="renderBREligibility()" checked style="width:12px;height:12px;accent-color:#94a3b8">
+                Show moved out
+              </label>
               <button class="btn btn-green" onclick="addBREligibility()">+ Add Patient</button>
               <button class="btn btn-navy" onclick="bulkSetBREligStatus()">⚡ Bulk Status</button>
             </div>
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
-              <thead>
-                <tr style="background:#f0f4fa;font-size:11px;font-weight:600;color:#7a8fa8;text-transform:uppercase;letter-spacing:.05em">
-                  <th style="padding:8px 12px;text-align:left">Patient Name</th>
-                  <th style="padding:8px 12px;text-align:left">CIN</th>
-                  <th style="padding:8px 12px;text-align:left">House</th>
-                  <th style="padding:8px 12px;text-align:left">Status</th>
-                  <th style="padding:8px 12px;text-align:left">Notes</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="br-elig-body"></tbody>
-            </table>
+            <div id="br-elig-stats" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px"></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr>
+                  <th style="width:22%">Patient name</th>
+                  <th style="width:15%">CIN</th>
+                  <th style="width:14%">House</th>
+                  <th style="width:12%">Status</th>
+                  <th style="width:29%">Notes</th><th style="width:8%"></th>
+                </tr></thead>
+                <tbody id="br-elig-body"></tbody>
+              </table>
+              <div class="empty" id="br-elig-empty" style="display:none">No records found.</div>
+            </div>
+            <div class="count-note" id="br-elig-count"></div>
           </div>
 
           <!-- BR Payments Panel -->
@@ -7115,7 +7127,7 @@ function syncBREligibility(name, cin, house) {
     (cin && r.cin && r.cin.toLowerCase().trim() === cin.toLowerCase().trim())
   );
   if (!exists) {
-    BR_ELIGIBILITY.push({ name, cin: cin||'', house: house||'', status: 'active', notes: '' });
+    BR_ELIGIBILITY.push({ name, cin: cin||'', house: house||'', status: 'active', notes: '', checkHistory: [] });
   }
 }
 
@@ -7142,36 +7154,147 @@ function confirmAddBRPatient() {
 function openBRAddAgreement() { toggleBRAddForm(); }
 
 function renderBREligibility() {
-  const q = (document.getElementById('br-elig-search')||{value:''}).value.toLowerCase();
   const tbody = document.getElementById('br-elig-body');
   if (!tbody) return;
-  const rows = BR_ELIGIBILITY.filter(r => {
-    if (!r||!r.name) return false;
-    if (q && !(r.name||'').toLowerCase().includes(q) && !(r.cin||'').toLowerCase().includes(q)) return false;
+
+  const search = (document.getElementById('br-elig-search')||{}).value || '';
+  const filter = (document.getElementById('br-elig-filter')||{}).value || 'all';
+  const showMoved = document.getElementById('br-elig-show-moved') ? document.getElementById('br-elig-show-moved').checked : true;
+
+  const active = BR_ELIGIBILITY.filter(r => !r.movedOut && r.status==='active').length;
+  const inactive = BR_ELIGIBILITY.filter(r => !r.movedOut && r.status==='inactive').length;
+  const pending = BR_ELIGIBILITY.filter(r => !r.movedOut && r.status==='pending').length;
+  const movedOut = BR_ELIGIBILITY.filter(r => r.movedOut).length;
+  const statsEl = document.getElementById('br-elig-stats');
+  if (statsEl) statsEl.innerHTML = `
+    <div class="inv-stat"><div class="inv-stat-label">Active</div><div class="inv-stat-val" style="color:#1e6b3d">${active}</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">Inactive</div><div class="inv-stat-val" style="color:#a82828">${inactive}</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">Pending</div><div class="inv-stat-val" style="color:#2558a8">${pending}</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">Moved out</div><div class="inv-stat-val" style="color:#64748b">${movedOut}</div></div>`;
+
+  const filtered = BR_ELIGIBILITY.filter(r => {
+    if (r.movedOut && !showMoved) return false;
+    if (search && !(r.name||'').toLowerCase().includes(search.toLowerCase()) && !(r.cin||'').toLowerCase().includes(search.toLowerCase())) return false;
+    if (filter !== 'all' && r.status !== filter) return false;
     return true;
   });
-  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No patients</td></tr>'; return; }
-  tbody.innerHTML = rows.map((r,i) => `<tr style="border-bottom:0.5px solid #f0f2f5">
-    <td style="padding:10px 12px;font-weight:500">${r.name||''}</td>
-    <td style="padding:10px 12px;font-size:12px;color:#5d6b82;font-family:DM Mono,monospace">${r.cin||''}</td>
-    <td style="padding:10px 12px;font-size:12px;color:#5d6b82">${r.house||''}</td>
-    <td style="padding:10px 12px">
-      <select onchange="BR_ELIGIBILITY[${i}].status=this.value;markUnsaved()" style="font-size:11px;border-radius:6px;border:1px solid #e2e8f0;padding:3px 6px;font-family:inherit">
-        <option ${r.status==='active'?'selected':''}>active</option>
-        <option ${r.status==='inactive'?'selected':''}>inactive</option>
-        <option ${r.status==='pending'?'selected':''}>pending</option>
-      </select>
-    </td>
-    <td style="padding:10px 12px;font-size:12px;color:#5d6b82" contenteditable="true" onblur="BR_ELIGIBILITY[${i}].notes=this.textContent.trim();markUnsaved()">${r.notes||''}</td>
-    <td style="padding:10px 12px"><button style="opacity:0;background:none;border:none;cursor:pointer;color:#c5392f;font-size:14px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0" onclick="BR_ELIGIBILITY.splice(${i},1);markUnsaved();renderBREligibility()">&#x2715;</button></td>
-  </tr>`).join('');
+
+  const empty = document.getElementById('br-elig-empty');
+  const note = document.getElementById('br-elig-count');
+  if (!filtered.length) { tbody.innerHTML = ''; if(empty) empty.style.display=''; if(note) note.textContent=''; return; }
+  if (empty) empty.style.display = 'none';
+  if (note) note.textContent = `Showing ${filtered.length} of ${BR_ELIGIBILITY.length} records`;
+
+  tbody.innerHTML = filtered.map(r => {
+    const i = BR_ELIGIBILITY.indexOf(r);
+    const histKey = 'br_elig_expanded_' + (r.name || i).replace(/\s+/g,'_');
+    const isExpanded = window[histKey];
+    const history = r.checkHistory || [];
+    const historyRow = isExpanded && history.length > 0 ? `<tr><td colspan="6" style="background:#f8fafc;padding:8px 16px 10px 32px;border-bottom:0.5px solid #e2e8f0">
+      <div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Check history</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${history.map(entry => {
+          const parts = entry.includes('|') ? entry.split('|') : [entry, 'active'];
+          const d = parts[0];
+          const s = parts[1] || 'active';
+          const dotColor = s === 'active' ? '#22c55e' : s === 'inactive' ? '#ef4444' : '#eab308';
+          const label = s.charAt(0).toUpperCase() + s.slice(1);
+          return `<span style="background:#fff;border:0.5px solid #e2e8f0;border-radius:6px;padding:3px 10px;font-size:12px;color:#4a5568;font-family:'DM Mono',monospace;display:inline-flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${dotColor};display:inline-block"></span>${d} — ${label}</span>`;
+        }).join('')}
+      </div>
+    </td></tr>` : (isExpanded ? `<tr><td colspan="6" style="background:#f8fafc;padding:8px 16px;font-size:12px;color:#94a3b8;border-bottom:0.5px solid #e2e8f0">No check history yet.</td></tr>` : '');
+    const statusColors = {active:{bg:'#eefbf3',color:'#1e6b3d',border:'#86e0aa'},inactive:{bg:'#fff0f0',color:'#a82828',border:'#fcc8c8'},pending:{bg:'#edf5ff',color:'#2558a8',border:'#b0d4f8'},'moved-out':{bg:'#f1f5f9',color:'#64748b',border:'#e2e8f0'}};
+    const sc = r.movedOut ? statusColors['moved-out'] : (statusColors[r.status]||statusColors.pending);
+    return `<tr onclick="toggleBREligRow(${i})" style="cursor:pointer${r.movedOut?';opacity:0.6':''}">
+      <td class="name-cell" style="font-weight:500;color:${r.movedOut?'#94a3b8':'#0f2035'}">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;color:#94a3b8;transition:transform 0.2s;display:inline-block;transform:${isExpanded?'rotate(90deg)':'rotate(0deg)'}">▶</span>
+          ${r.name||'—'}
+        </div>
+        <label class="mo-check ${r.movedOut?'mo-checked':''}" onclick="event.stopPropagation()">
+          <input type="checkbox" ${r.movedOut?'checked':''} onchange="toggleBREligMovedOut(${i},this);event.stopPropagation()">
+          <span>moved out</span>
+        </label>
+      </td>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;align-items:center;gap:4px">
+          <input type="text" value="${(r.cin||'').replace(/"/g,'&quot;')}" placeholder="—"
+            onclick="event.stopPropagation()"
+            onchange="BR_ELIGIBILITY[${i}].cin=this.value;markUnsaved()"
+            onblur="BR_ELIGIBILITY[${i}].cin=this.value;markUnsaved();this.style.border='1px solid transparent';this.style.background='transparent'"
+            style="font-family:'DM Mono',monospace;font-size:11px;color:${r.movedOut?'#991b1b':'#374151'};font-weight:${r.movedOut?'600':'400'};border:1px solid transparent;border-radius:4px;padding:2px 5px;width:108px;background:transparent;outline:none"
+            onfocus="this.style.border='1px solid #bee3f8';this.style.background='#f0f7ff'">
+          <button onclick="event.stopPropagation();copyCIN(this.previousElementSibling.value)" title="Copy CIN" style="flex-shrink:0;background:none;border:none;cursor:pointer;padding:2px 4px;border-radius:4px;font-size:12px;color:#94a3b8" onmouseover="this.style.background='#e8f0fe';this.style.color='#2558a8'" onmouseout="this.style.background='none';this.style.color='#94a3b8'">⧉</button>
+        </div>
+        ${(!r.cin || ['unknown','n/a','—','-','?'].includes((r.cin||'').toLowerCase().trim())) ? (() => { const m = brFindTrackerMatch(r.name, ''); const mCin = (m&&m['CIN']||'').trim(); const cinInvalidWords = ['unknown','pending','n/a','none','tbd','na','yes','no']; const cinValid = /^[a-zA-Z0-9]{7,}$/.test(mCin) && !cinInvalidWords.includes(mCin.toLowerCase()); return m && cinValid ? `<div style="font-size:10px;color:#2558a8;margin-top:3px;cursor:pointer;display:flex;align-items:center;gap:3px" onclick="event.stopPropagation();BR_ELIGIBILITY[${i}].cin='${(m['CIN']||'').replace(/'/g,String.fromCharCode(39))}';markUnsaved();this.parentElement.querySelector('input').value='${(m['CIN']||'').replace(/'/g,String.fromCharCode(39))}';this.style.display='none';" title="Click to apply">💡 ${m['CIN']} (${m['Patient Name']||'Unknown'}) — click to apply</div>` : ''; })() : ''}
+      </td>
+      <td style="font-size:12px;color:var(--muted)">${r.house||'—'}</td>
+      <td onclick="event.stopPropagation()">
+        ${r.movedOut
+          ? '<span style="padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0">Moved out</span>'
+          : `<select onchange="changeBREligStatus(${i},this.value)" style="padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;outline:none;border:1px solid ${sc.border};background:${sc.bg};color:${sc.color}">
+              <option value="active" ${r.status==='active'?'selected':''}>Active</option>
+              <option value="inactive" ${r.status==='inactive'?'selected':''}>Inactive</option>
+              <option value="pending" ${r.status==='pending'||!r.status?'selected':''}>Pending</option>
+            </select>`
+        }
+      </td>
+      <td onclick="event.stopPropagation()">
+        <span contenteditable="true"
+          onblur="BR_ELIGIBILITY[${i}].notes=this.textContent;markUnsaved()"
+          onclick="event.stopPropagation()"
+          onfocus="event.stopPropagation();this.style.background='#f0f7ed';this.style.color='#0f2035'"
+          style="font-size:12px;color:var(--muted);display:block;outline:none;border-radius:4px;padding:2px 4px;cursor:text;min-width:60px"
+          onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''"
+        >${r.notes||''}</span>
+      </td>
+      <td onclick="event.stopPropagation()" style="width:40px;text-align:center">
+        <button onclick="removeBREligPatient(${i});event.stopPropagation()" title="Remove patient"
+          style="background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:14px;padding:3px 8px;border-radius:4px;transition:all 0.15s"
+          onmouseover="this.style.color='#dc2626';this.style.background='#fef2f2'"
+          onmouseout="this.style.color='#cbd5e1';this.style.background='none'">✕</button>
+      </td>
+    </tr>${historyRow}`;
+  }).join('');
+}
+
+function toggleBREligRow(idx) {
+  const r = BR_ELIGIBILITY[idx];
+  if (!r) return;
+  const key = 'br_elig_expanded_' + (r.name || idx).replace(/\s+/g,'_');
+  window[key] = !window[key];
+  renderBREligibility();
+}
+
+function toggleBREligMovedOut(idx, cb) {
+  BR_ELIGIBILITY[idx].movedOut = cb.checked;
+  markUnsaved();
+  renderBREligibility();
+}
+
+function changeBREligStatus(idx, val) {
+  BR_ELIGIBILITY[idx].status = val;
+  const today = new Date();
+  const dateStr = (today.getMonth()+1)+'/'+today.getDate()+'/'+today.getFullYear();
+  if (!BR_ELIGIBILITY[idx].checkHistory) BR_ELIGIBILITY[idx].checkHistory = [];
+  BR_ELIGIBILITY[idx].checkHistory = BR_ELIGIBILITY[idx].checkHistory.filter(e => !e.startsWith(dateStr));
+  BR_ELIGIBILITY[idx].checkHistory.unshift(dateStr+'|'+val);
+  markUnsaved(); renderBREligibility();
+}
+
+function removeBREligPatient(idx) {
+  const name = BR_ELIGIBILITY[idx]?.name || 'this patient';
+  if (!confirm('Remove ' + name + ' from Bedrock eligibility?')) return;
+  BR_ELIGIBILITY.splice(idx, 1);
+  markUnsaved(); renderBREligibility();
+  showToast('✓ ' + name + ' removed');
 }
 
 function addBREligibility() {
   const name = prompt('Patient full name:'); if (!name) return;
   const cin = prompt('CIN:') || '';
   const house = prompt('House:') || '';
-  BR_ELIGIBILITY.push({ name, cin, house, status: 'active', notes: '' });
+  BR_ELIGIBILITY.push({ name, cin, house, status: 'active', notes: '', checkHistory: [] });
   markUnsaved(); renderBREligibility();
 }
 
@@ -7884,30 +8007,49 @@ function renderPHEligibility() {
 
   tbody.innerHTML = filtered.map(r => {
     const i = PH_ELIGIBILITY_DATA.indexOf(r);
+    const histKey = 'ph_elig_expanded_' + (r.name || i).replace(/\s+/g,'_');
+    const isExpanded = window[histKey];
+    const history = r.checkHistory || [];
+    const historyRow = isExpanded && history.length > 0 ? `<tr><td colspan="6" style="background:#f8fafc;padding:8px 16px 10px 32px;border-bottom:0.5px solid #e2e8f0">
+      <div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Check history</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${history.map(entry => {
+          const parts = entry.includes('|') ? entry.split('|') : [entry, 'active'];
+          const d = parts[0];
+          const s = parts[1] || 'active';
+          const dotColor = s === 'active' ? '#22c55e' : s === 'inactive' ? '#ef4444' : '#eab308';
+          const label = s.charAt(0).toUpperCase() + s.slice(1);
+          return `<span style="background:#fff;border:0.5px solid #e2e8f0;border-radius:6px;padding:3px 10px;font-size:12px;color:#4a5568;font-family:'DM Mono',monospace;display:inline-flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${dotColor};display:inline-block"></span>${d} — ${label}</span>`;
+        }).join('')}
+      </div>
+    </td></tr>` : (isExpanded ? `<tr><td colspan="6" style="background:#f8fafc;padding:8px 16px;font-size:12px;color:#94a3b8;border-bottom:0.5px solid #e2e8f0">No check history yet.</td></tr>` : '');
     const statusColors = {active:{bg:'#eefbf3',color:'#1e6b3d',border:'#86e0aa'},inactive:{bg:'#fff0f0',color:'#a82828',border:'#fcc8c8'},pending:{bg:'#edf5ff',color:'#2558a8',border:'#b0d4f8'},'moved-out':{bg:'#f1f5f9',color:'#64748b',border:'#e2e8f0'}};
     const sc = r.movedOut ? statusColors['moved-out'] : (statusColors[r.status]||statusColors.pending);
-    return `<tr style="${r.movedOut?'opacity:0.7':''}">
+    return `<tr onclick="togglePHEligRow(${i})" style="cursor:pointer${r.movedOut?';opacity:0.6':''}">
       <td class="name-cell" style="font-weight:500;color:${r.movedOut?'#94a3b8':'#0f2035'}">
-        <div>${r.name||'—'}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;color:#94a3b8;transition:transform 0.2s;display:inline-block;transform:${isExpanded?'rotate(90deg)':'rotate(0deg)'}">▶</span>
+          ${r.name||'—'}
+        </div>
         <label class="mo-check ${r.movedOut?'mo-checked':''}" onclick="event.stopPropagation()">
           <input type="checkbox" ${r.movedOut?'checked':''} onchange="togglePHEligMovedOut(${i},this);event.stopPropagation()">
           <span>moved out</span>
         </label>
       </td>
-      <td>
+      <td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px">
           <input type="text" value="${(r.cin||'').replace(/"/g,'&quot;')}" placeholder="—"
+            onclick="event.stopPropagation()"
             onchange="PH_ELIGIBILITY_DATA[${i}].cin=this.value;markUnsaved();autoSyncPHEligibility()"
-            onblur="PH_ELIGIBILITY_DATA[${i}].cin=this.value;markUnsaved();autoSyncPHEligibility()"
+            onblur="PH_ELIGIBILITY_DATA[${i}].cin=this.value;markUnsaved();autoSyncPHEligibility();this.style.border='1px solid transparent';this.style.background='transparent'"
             style="font-family:'DM Mono',monospace;font-size:11px;color:${r.movedOut?'#991b1b':'#374151'};font-weight:${r.movedOut?'600':'400'};border:1px solid transparent;border-radius:4px;padding:2px 5px;width:108px;background:transparent;outline:none"
-            onfocus="this.style.border='1px solid #bee3f8';this.style.background='#f0f7ff'"
-            onblur="this.style.border='1px solid transparent';this.style.background='transparent'">
-          <button onclick="copyCIN(this.previousElementSibling.value)" title="Copy CIN" style="flex-shrink:0;background:none;border:none;cursor:pointer;padding:2px 4px;border-radius:4px;font-size:12px;color:#94a3b8" onmouseover="this.style.background='#e8f0fe';this.style.color='#2558a8'" onmouseout="this.style.background='none';this.style.color='#94a3b8'">⧉</button>
+            onfocus="this.style.border='1px solid #bee3f8';this.style.background='#f0f7ff'">
+          <button onclick="event.stopPropagation();copyCIN(this.previousElementSibling.value)" title="Copy CIN" style="flex-shrink:0;background:none;border:none;cursor:pointer;padding:2px 4px;border-radius:4px;font-size:12px;color:#94a3b8" onmouseover="this.style.background='#e8f0fe';this.style.color='#2558a8'" onmouseout="this.style.background='none';this.style.color='#94a3b8'">⧉</button>
         </div>
-        ${(!r.cin || ['unknown','n/a','—','-','?'].includes((r.cin||'').toLowerCase().trim())) ? (() => { const m = findPHTrackerMatch(r.name, ''); const mCin = (m&&m['CIN']||'').trim(); const cinInvalidWords = ['unknown','pending','n/a','none','tbd','na','yes','no']; const cinValid = /^[a-zA-Z0-9]{7,}$/.test(mCin) && !cinInvalidWords.includes(mCin.toLowerCase()); return m && cinValid ? `<div style="font-size:10px;color:#2558a8;margin-top:3px;cursor:pointer;display:flex;align-items:center;gap:3px" onclick="PH_ELIGIBILITY_DATA[${i}].cin='${(m['CIN']||'').replace(/'/g,String.fromCharCode(39))}';markUnsaved();autoSyncPHEligibility();this.parentElement.querySelector('input').value='${(m['CIN']||'').replace(/'/g,String.fromCharCode(39))}';this.style.display='none';" title="Click to apply">💡 ${m['CIN']} (${m['Patient Name']||'Unknown'}) — click to apply</div>` : ''; })() : ''}
+        ${(!r.cin || ['unknown','n/a','—','-','?'].includes((r.cin||'').toLowerCase().trim())) ? (() => { const m = findPHTrackerMatch(r.name, ''); const mCin = (m&&m['CIN']||'').trim(); const cinInvalidWords = ['unknown','pending','n/a','none','tbd','na','yes','no']; const cinValid = /^[a-zA-Z0-9]{7,}$/.test(mCin) && !cinInvalidWords.includes(mCin.toLowerCase()); return m && cinValid ? `<div style="font-size:10px;color:#2558a8;margin-top:3px;cursor:pointer;display:flex;align-items:center;gap:3px" onclick="event.stopPropagation();PH_ELIGIBILITY_DATA[${i}].cin='${(m['CIN']||'').replace(/'/g,String.fromCharCode(39))}';markUnsaved();autoSyncPHEligibility();this.parentElement.querySelector('input').value='${(m['CIN']||'').replace(/'/g,String.fromCharCode(39))}';this.style.display='none';" title="Click to apply">💡 ${m['CIN']} (${m['Patient Name']||'Unknown'}) — click to apply</div>` : ''; })() : ''}
       </td>
       <td style="font-size:12px;color:var(--muted)">${r.dateChecked ? formatDate(r.dateChecked) : '—'}</td>
-      <td>
+      <td onclick="event.stopPropagation()">
         ${r.movedOut
           ? '<span style="padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0">Moved out</span>'
           : `<select onchange="changePHEligStatus(${i},this.value)" style="padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;outline:none;border:1px solid ${sc.border};background:${sc.bg};color:${sc.color}">
@@ -7917,22 +8059,31 @@ function renderPHEligibility() {
             </select>`
         }
       </td>
-      <td>
+      <td onclick="event.stopPropagation()">
         <span contenteditable="true"
           onblur="PH_ELIGIBILITY_DATA[${i}].notes=this.textContent;markUnsaved();autoSyncPHEligibility()"
+          onclick="event.stopPropagation()"
+          onfocus="event.stopPropagation();this.style.background='#f0f7ed';this.style.color='#0f2035'"
           style="font-size:12px;color:var(--muted);display:block;outline:none;border-radius:4px;padding:2px 4px;cursor:text;min-width:60px"
           onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''"
-          onfocus="this.style.background='#f0f7ed';this.style.color='#0f2035'"
         >${r.notes||''}</span>
       </td>
-      <td style="width:40px;text-align:center">
-        <button onclick="removePHEligPatient(${i})" title="Remove patient"
+      <td onclick="event.stopPropagation()" style="width:40px;text-align:center">
+        <button onclick="removePHEligPatient(${i});event.stopPropagation()" title="Remove patient"
           style="background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:14px;padding:3px 8px;border-radius:4px;transition:all 0.15s"
           onmouseover="this.style.color='#dc2626';this.style.background='#fef2f2'"
           onmouseout="this.style.color='#cbd5e1';this.style.background='none'">✕</button>
       </td>
-    </tr>`;
+    </tr>${historyRow}`;
   }).join('');
+}
+
+function togglePHEligRow(idx) {
+  const r = PH_ELIGIBILITY_DATA[idx];
+  if (!r) return;
+  const key = 'ph_elig_expanded_' + (r.name || idx).replace(/\s+/g,'_');
+  window[key] = !window[key];
+  renderPHEligibility();
 }
 
 function togglePHEligMovedOut(idx, cb) {
