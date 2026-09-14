@@ -2751,20 +2751,72 @@ function statusBadge(r) {
   if (s==='free') return '<span class="badge badge-gray">Free</span>';
   return '<span class="badge badge-orange">Pending</span>';
 }
+function getExpectedTotal(r) {
+  // Same calculation as getDisplayTotal but ignores lock status entirely —
+  // always shows what SHOULD be billed based on current agreement/billing period data
+  const rate = r.rate || 99;
+  const parseDate = s => {
+    if (!s) return null;
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) { const p=s.split('T')[0].split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); }
+    const p = s.split('/');
+    if (p.length === 3) return new Date(parseInt(p[2].length===2?'20'+p[2]:p[2]), parseInt(p[0])-1, parseInt(p[1]));
+    return null;
+  };
+  if (r.skipMainPeriod) {
+    return (r.billingPeriods && r.billingPeriods.length > 0)
+      ? r.billingPeriods.reduce((sum, p) => sum + daysBetweenDates(p.start, p.end) * rate, 0)
+      : (r.priorTotal || 0);
+  }
+  if (r.agreement === 'MANUAL') {
+    const d1 = parseDate(r.firstDay), d2 = parseDate(r.lastDay);
+    const days = (d1 && d2) ? Math.round((d2 - d1) / 86400000) + 1 : 0;
+    return days * rate;
+  }
+  const hasInvoice = r.invoice && /^FL-\d+$/.test(r.invoice);
+  if (hasInvoice) {
+    const agS = getAgreementStatus(r.name, r.cin, r.month);
+    const agreementCoversMonth = (agS === 'active' || agS === 'expiring') && !r.mainDatesCleared;
+    const fd = r.firstDay || (agreementCoversMonth ? getAutoFirstDay(r.name, r.cin, r.month) : null);
+    const ld = r.lastDay || (agreementCoversMonth ? (getLastDayFromAgreement(r.name, r.cin, r.month) || getAutoLastDay(r.name, r.cin, r.month)) : null);
+    const d1 = parseDate(fd), d2 = parseDate(ld);
+    const mainDays = (d1 && d2) ? Math.round((d2 - d1) / 86400000) + 1 : 0;
+    const mainTotal = mainDays * rate;
+    const periodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
+      ? r.billingPeriods.reduce((sum, p) => sum + daysBetweenDates(p.start, p.end) * rate, 0)
+      : (r.priorTotal || 0);
+    return mainTotal + periodsTotal;
+  }
+  let firstDay, lastDay;
+  if (r.mainDatesCleared) {
+    firstDay = null; lastDay = null;
+  } else {
+    ({ firstDay, lastDay } = getEffectiveDates(r));
+  }
+  const d1 = parseDate(firstDay), d2 = parseDate(lastDay);
+  const mainDays = (d1 && d2) ? Math.round((d2 - d1) / 86400000) + 1 : 0;
+  const mainTotal = mainDays > 0 ? mainDays * rate : 0;
+  const periodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
+    ? r.billingPeriods.reduce((sum, p) => sum + daysBetweenDates(p.start, p.end) * rate, 0)
+    : (r.priorTotal || 0);
+  return mainTotal + periodsTotal;
+}
+
 function monthStats(month) {
   const rows=INVOICE_DATA_ARR.filter(r=>r.month===month);
   const invoiced=rows.filter(r=>getDisplayTotal(r)>0);
   const billed=rows.filter(r=>r.invoice&&/^FL-\d+$/.test(r.invoice));
   const billedTotal=billed.reduce((s,r)=>s+getDisplayTotal(r),0);
   const allTotal=invoiced.reduce((s,r)=>s+getDisplayTotal(r),0);
-  return { total: allTotal, count: invoiced.length, billed: billed.length, billedTotal, diff: allTotal - billedTotal };
+  const expectedRows=rows.filter(r=>getExpectedTotal(r)>0);
+  const expectedTotal=expectedRows.reduce((s,r)=>s+getExpectedTotal(r),0);
+  return { total: allTotal, count: invoiced.length, billed: billed.length, billedTotal, diff: allTotal - billedTotal, expectedTotal, expectedCount: expectedRows.length };
 }
 function renderPills() {
   document.getElementById('month-pills').innerHTML = MONTHS.map(m => {
     const locked = isFLMonthLocked(m);
     const badge = locked
       ? `<span onclick="if(confirm('Unlock ${m}? This will allow agreement changes to affect invoices.'))unlockFLMonth('${m}')" title="Click to unlock ${m}" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔒</span>`
-      : '';
+      : (m !== activeMonth ? '' : `<span onclick="event.stopPropagation();if(confirm('Re-lock ${m}?'))lockFLMonth('${m}')" title="Click to re-lock ${m}" style="position:absolute;top:-6px;right:-6px;background:#f0f2f5;color:#5d6b82;border:1px solid #dde2ea;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔓</span>`);
     return `<span style="position:relative;display:inline-block"><button class="pill${m===activeMonth?' active':''}" onclick="selectMonth('${m}')">${m}</button>${badge}</span>`;
   }).join('');
 }
@@ -2803,6 +2855,11 @@ function renderStats() {
           <div style="font-size:10px;color:#7abf9a;font-weight:500;text-transform:uppercase;letter-spacing:0.06em">Actual Paid — ${activeMonth}</div>
           <div style="font-size:18px;font-weight:700;color:#ffffff">${fmt(totalActualPaid)}</div>
           <div style="font-size:10px;margin-top:1px">${paidDiffHtml}</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#4a3a1c,#6b5a2a);border-radius:10px;padding:10px 16px;box-shadow:0 4px 14px rgba(74,58,28,0.2);display:flex;flex-direction:column;justify-content:center;gap:2px" title="What should be billed this month based on current agreements, regardless of invoice numbers assigned or month lock status">
+          <div style="font-size:10px;color:#e0c68f;font-weight:500;text-transform:uppercase;letter-spacing:0.06em">Expected — ${activeMonth}</div>
+          <div style="font-size:18px;font-weight:700;color:#ffffff">${fmt(s.expectedTotal)}</div>
+          <div style="font-size:10px;color:#e0c68f;margin-top:1px">${s.expectedCount} patient${s.expectedCount !== 1 ? 's' : ''} eligible</div>
         </div>
       </div>
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 16px;font-size:12px;color:#475569;display:flex;gap:24px;align-items:center;flex-wrap:wrap">
@@ -3257,6 +3314,7 @@ function confirmAssign() {
     const cb = document.getElementById('ai_' + i);
     if (cb && cb.checked) {
       r.invoice = 'FL-' + next;
+      r.locked = false;
       // Auto-set to invoiced (billed) status
       if (!r.payment || !r.payment.includes('✓')) { r.payment = ''; }
       next++;
@@ -4970,7 +5028,8 @@ function saveInvoiceField(idx, val) {
   INVOICE_DATA_ARR[idx].invoice = clean;
   // Auto-set status based on invoice number
   if (/^FL-\d+$/.test(clean)) {
-    // Has a valid FL- number — mark as invoiced (billed)
+    // Has a valid FL- number — mark as invoiced (billed) and clear any stale lock
+    INVOICE_DATA_ARR[idx].locked = false;
     if (!INVOICE_DATA_ARR[idx].payment || !INVOICE_DATA_ARR[idx].payment.includes('\u2713')) {
       INVOICE_DATA_ARR[idx].payment = '';
       INVOICE_DATA_ARR[idx].agreement = INVOICE_DATA_ARR[idx].agreement === 'WAITING' ? 'ACTIVE' : INVOICE_DATA_ARR[idx].agreement;
@@ -5389,9 +5448,19 @@ function getDisplayTotal(r) {
   // If row has an invoice number — always calculate from stored dates + tracker fallback
   // The lock wall above already blocks non-invoiced rows in locked months
   const hasInvoice = r.invoice && /^FL-\d+$/.test(r.invoice);
+  if (r.skipMainPeriod) {
+    const periodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
+      ? r.billingPeriods.reduce((sum, p) => sum + daysBetweenDates(p.start, p.end) * rate, 0)
+      : (r.priorTotal || 0);
+    return periodsTotal;
+  }
   if (hasInvoice) {
-    const fd = r.firstDay || getAutoFirstDay(r.name, r.cin, r.month);
-    const ld = r.lastDay || getLastDayFromAgreement(r.name, r.cin, r.month) || getAutoLastDay(r.name, r.cin, r.month);
+    // Only auto-fill main-period dates from the tracker if the agreement actually covers this month
+    // AND the user hasn't intentionally cleared the dates to exclude this month.
+    const agS = getAgreementStatus(r.name, r.cin, r.month);
+    const agreementCoversMonth = (agS === 'active' || agS === 'expiring') && !r.mainDatesCleared;
+    const fd = r.firstDay || (agreementCoversMonth ? getAutoFirstDay(r.name, r.cin, r.month) : null);
+    const ld = r.lastDay || (agreementCoversMonth ? (getLastDayFromAgreement(r.name, r.cin, r.month) || getAutoLastDay(r.name, r.cin, r.month)) : null);
     const d1 = parseDate(fd), d2 = parseDate(ld);
     const mainDays = (d1 && d2) ? Math.round((d2 - d1) / 86400000) + 1 : 0;
     const mainTotal = mainDays * rate;
@@ -5400,7 +5469,12 @@ function getDisplayTotal(r) {
       : (r.priorTotal || 0);
     return mainTotal + periodsTotal;
   }
-  const { firstDay, lastDay } = getEffectiveDates(r);
+  let firstDay, lastDay;
+  if (r.mainDatesCleared) {
+    firstDay = null; lastDay = null;
+  } else {
+    ({ firstDay, lastDay } = getEffectiveDates(r));
+  }
   const d1 = parseDate(firstDay), d2 = parseDate(lastDay);
   const mainDays = (d1 && d2) ? Math.round((d2 - d1) / 86400000) + 1 : 0;
   const mainTotal = mainDays > 0 ? mainDays * rate : 0;
@@ -5413,12 +5487,32 @@ function getDisplayTotal(r) {
 }
 
 
+function saveFirstDay(idx, val) {
+  const clean = val.trim();
+  const r = INVOICE_DATA_ARR[idx];
+  if (clean === '—' || clean === '') {
+    r.firstDay = '';
+    // If both dates are now empty, treat this as intentional — stop auto-filling from the agreement
+    if (!r.lastDay) r.mainDatesCleared = true;
+  } else {
+    r.firstDay = clean;
+    r.mainDatesCleared = false;
+  }
+  markUnsaved();
+  renderStats();
+  renderInvoices();
+}
+
 function saveLastDay(idx, val) {
   const clean = val.trim();
+  const r = INVOICE_DATA_ARR[idx];
   if (clean === '—' || clean === '') {
-    INVOICE_DATA_ARR[idx].lastDay = '';
+    r.lastDay = '';
+    // If both dates are now empty, treat this as intentional — stop auto-filling from the agreement
+    if (!r.firstDay) r.mainDatesCleared = true;
   } else {
-    INVOICE_DATA_ARR[idx].lastDay = clean;
+    r.lastDay = clean;
+    r.mainDatesCleared = false;
   }
   markUnsaved();
   renderStats();
@@ -5505,7 +5599,15 @@ function renderInvoices() {
       </label>
     </td>
     <td class="cin-cell"><span contenteditable="true" onblur="saveInvCin(${INVOICE_DATA_ARR.indexOf(r)},this.textContent)" onpaste="event.preventDefault();var t=event.clipboardData.getData('text/plain').trim();document.execCommand('insertText',false,t);this.style.fontFamily='\'DM Mono\',monospace'" onfocus="this.style.background='#e8f0fe';suggestCIN(this,(INVOICE_DATA_ARR[${INVOICE_DATA_ARR.indexOf(r)}]||{}).name||'',this.textContent.trim(),'FL')" style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);cursor:text" onmouseover="this.style.background='#e8f0fe'" onmouseout="if(document.activeElement!==this)this.style.background=''">${r.cin||''}</span></td>
-    <td style="font-size:12px;color:var(--muted)">${(()=>{ if(isFLMonthLocked(r.month)&&(!r.invoice||!/^FL-\d+$/.test(r.invoice))&&r.agreement!=='MANUAL') return '—'; const s=getAgreementStatus(r.name,r.cin,r.month); return (s==='active'||s==='expiring') ? (r.firstDay ? formatDate(r.firstDay) : (getAutoFirstDay(r.name,r.cin,r.month)||'—')) : '—'; })()}</td>
+    <td style="font-size:12px;color:var(--muted)">
+      <span contenteditable="true"
+        onblur="saveFirstDay(${INVOICE_DATA_ARR.indexOf(r)}, this.textContent)"
+        style="display:block;outline:none;border-radius:4px;padding:2px 4px;cursor:text;min-width:30px"
+        onmouseover="this.style.background='#f0f7ed'"
+        onmouseout="if(document.activeElement!==this)this.style.background=''"
+        onfocus="this.style.background='#f0f7ed'"
+      >${(()=>{ if(isFLMonthLocked(r.month)&&(!r.invoice||!/^FL-\d+$/.test(r.invoice))&&r.agreement!=='MANUAL') return '—'; if(r.mainDatesCleared) return r.firstDay?formatDate(r.firstDay):'—'; const s=getAgreementStatus(r.name,r.cin,r.month); return (s==='active'||s==='expiring') ? (r.firstDay ? formatDate(r.firstDay) : (getAutoFirstDay(r.name,r.cin,r.month)||'—')) : '—'; })()}</span>
+    </td>
     <td style="font-size:12px;color:var(--muted)">
       <span contenteditable="true"
         onblur="saveLastDay(${INVOICE_DATA_ARR.indexOf(r)}, this.textContent)"
@@ -5513,7 +5615,7 @@ function renderInvoices() {
         onmouseover="this.style.background='#f0f7ed'"
         onmouseout="if(document.activeElement!==this)this.style.background=''"
         onfocus="this.style.background='#f0f7ed'"
-      >${(()=>{ if(isFLMonthLocked(r.month)&&(!r.invoice||!/^FL-\d+$/.test(r.invoice))&&r.agreement!=='MANUAL') return '—'; const s=getAgreementStatus(r.name,r.cin,r.month); if(s!=='active'&&s!=='expiring') return '—'; if(r.lastDay) return formatDate(r.lastDay); const ag=getLastDayFromAgreement(r.name,r.cin,r.month); return ag ? ag : (getAutoLastDay(r.name,r.cin,r.month) || '—');})()}</span>
+      >${(()=>{ if(isFLMonthLocked(r.month)&&(!r.invoice||!/^FL-\d+$/.test(r.invoice))&&r.agreement!=='MANUAL') return '—'; if(r.mainDatesCleared) return r.lastDay?formatDate(r.lastDay):'—'; const s=getAgreementStatus(r.name,r.cin,r.month); if(s!=='active'&&s!=='expiring') return '—'; if(r.lastDay) return formatDate(r.lastDay); const ag=getLastDayFromAgreement(r.name,r.cin,r.month); return ag ? ag : (getAutoLastDay(r.name,r.cin,r.month) || '—');})()}</span>
     </td>
     <td style="font-size:12px;color:var(--muted)">${r.rate?'$'+r.rate:'—'}</td>
     <td class="amount-cell">
@@ -5521,6 +5623,9 @@ function renderInvoices() {
         <span>${(()=>{ const s=getAgreementStatus(r.name,r.cin,r.month); const hasPeriods=(r.billingPeriods&&r.billingPeriods.length>0)||r.priorStart; if(s!=='active'&&s!=='expiring'&&!hasPeriods) return '—'; const t=getDisplayTotal(r); return t>0?fmt(t):'—'; })()}</span>
         <button class="pencil-btn${r.priorStart?' has-prior':''}" onclick="openPriorModal('${r.month}',findInvoiceIdx('${r.name}','${r.month}'))" title="${r.priorStart?'Edit prior period':'Add prior period'}">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3l8-8z"/></svg>
+        </button>
+        <button class="pencil-btn${r.skipMainPeriod?' has-prior':''}" onclick="toggleSkipMainPeriod(${INVOICE_DATA_ARR.indexOf(r)})" title="${r.skipMainPeriod?'Billing periods only — click to restore this month\u2019s auto amount':'Click to bill ONLY the added periods, skip this month\u2019s charge'}" style="${r.skipMainPeriod?'color:#c05621':''}">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
         </button>
         ${r.name && r.invoice && /^FL-\d+$/.test(r.invoice) ? `<button class="pencil-btn" onclick="openInvoice(${INVOICE_DATA_ARR.indexOf(r)})" title="Generate invoice" style="margin-left:2px;color:#3d7a2e">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="1" width="10" height="14" rx="1"/><path d="M6 5h4M6 8h4M6 11h2"/></svg>
@@ -5711,6 +5816,15 @@ function closePriorModal() {
 // ── PH Prior / Billing Periods Modal ─────────────────────────────────────────
 let phPriorEditIndex = null;
 
+function toggleSkipMainPeriodPH(idx) {
+  const r = PH_INVOICE_DATA_ARR[idx];
+  if (!r) return;
+  r.skipMainPeriod = !r.skipMainPeriod;
+  markUnsaved();
+  renderPH();
+  showToast(r.skipMainPeriod ? '✓ Now billing only the added periods for ' + r.name : '✓ Restored normal auto-billing for ' + r.name);
+}
+
 function openPHPriorModal(idx) {
   phPriorEditIndex = idx;
   const r = PH_INVOICE_DATA_ARR[idx];
@@ -5817,6 +5931,15 @@ function confirmCopy() {
 }
 
 // ── Invoice Generator ─────────────────────────────────────────────────────────
+
+function toggleSkipMainPeriod(idx) {
+  const r = INVOICE_DATA_ARR[idx];
+  if (!r) return;
+  r.skipMainPeriod = !r.skipMainPeriod;
+  markUnsaved();
+  renderInvoices();
+  showToast(r.skipMainPeriod ? '✓ Now billing only the added periods for ' + r.name : '✓ Restored normal auto-billing for ' + r.name);
+}
 
 function findInvoiceIdx(name, month) {
   for (let i = 0; i < INVOICE_DATA_ARR.length; i++) {
@@ -6363,7 +6486,7 @@ function renderPH() {
       const locked = isPHMonthLocked(m);
       const badge = locked
         ? `<span onclick="if(confirm('Unlock PH ${m}?'))unlockPHMonth('${m}')" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔒</span>`
-        : '';
+        : (m !== phActiveMonth ? '' : `<span onclick="event.stopPropagation();if(confirm('Re-lock PH ${m}?'))lockPHMonth('${m}')" title="Click to re-lock ${m}" style="position:absolute;top:-6px;right:-6px;background:#f0f2f5;color:#5d6b82;border:1px solid #dde2ea;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔓</span>`);
       return `<span style="position:relative;display:inline-block"><button class="pill${isActive?' active':''}" onclick="phActiveMonth='${m}';renderPH()">${m}</button>${badge}</span>`;
     }).join('');
   }
@@ -6614,9 +6737,12 @@ function renderPHInvoices() {
       <td style="font-size:12px;color:var(--muted)">${r.rate?'$'+r.rate:'—'}</td>
       <td class="amount-cell">
         <div style="display:flex;align-items:center;gap:4px">
-          <span>${(agStatus==='active'||agStatus==='expiring')&&total>0?'$'+total.toLocaleString():'—'}</span>
+          <span>${(agStatus==='active'||agStatus==='expiring'||r.skipMainPeriod)&&total>0?'$'+total.toLocaleString():'—'}</span>
           <button class="pencil-btn ${(r.billingPeriods&&r.billingPeriods.length>0)?'has-prior':''}" onclick="openPHPriorModal(${idx});event.stopPropagation()" title="Add/edit billing periods">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3L11 2z"/></svg>
+          </button>
+          <button class="pencil-btn${r.skipMainPeriod?' has-prior':''}" onclick="event.stopPropagation();toggleSkipMainPeriodPH(${idx})" title="${r.skipMainPeriod?'Billing periods only — click to restore this month\u2019s auto amount':'Click to bill ONLY the added periods, skip this month\u2019s charge'}" style="${r.skipMainPeriod?'color:#c05621':''}">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
           </button>
           ${hasInv?`<button class="pencil-btn" onclick="openPHInvoice(${idx})" title="Generate invoice" style="margin-left:2px;color:#3d7a2e">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="1" width="10" height="14" rx="1"/><path d="M6 5h4M6 8h4M6 11h2"/></svg>
@@ -7899,6 +8025,7 @@ function confirmPHAssign() {
     const cb = document.getElementById('ph_ai_'+i);
     if (cb && cb.checked) {
       r.invoice = 'FL-' + next + 'PH';
+      r.locked = false;
       if (!r.payment || !r.payment.includes('\u2713')) { r.payment = ''; }
       snapshotInvoiceRow(r, true);
       next++; count++;
@@ -8749,14 +8876,22 @@ function getPHDisplayTotal(r) {
 
   // If row has an invoice number, use stored dates + tracker fallback
   const hasPHInvoice = r.invoice && /^FL-\d+PH$/.test(r.invoice);
+  if (r.skipMainPeriod) {
+    const _periodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
+      ? r.billingPeriods.reduce((sum,p)=>sum+daysBetweenDates(p.start,p.end)*rate,0)
+      : (r.priorTotal||0);
+    return _periodsTotal;
+  }
   if (hasPHInvoice) {
     const _p = s => {
       if (!s) return null;
       if (/^\d{4}-\d{2}-\d{2}/.test(s)) { const p=s.split('T')[0].split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); }
       const p=s.split('/'); return p.length===3?new Date(parseInt(p[2].length===2?'20'+p[2]:p[2]),parseInt(p[0])-1,parseInt(p[1])):null;
     };
-    const fd = r.firstDay || getPHAutoFirstDay(r.name, r.cin, r.month);
-    const ld = r.lastDay || getLastDayFromPH(r.name, r.cin, r.month);
+    const _agS = getPHAgreementStatus(r.name, r.cin, r.month);
+    const _agreementCoversMonth = (_agS === 'active' || _agS === 'expiring');
+    const fd = r.firstDay || (_agreementCoversMonth ? getPHAutoFirstDay(r.name, r.cin, r.month) : null);
+    const ld = r.lastDay || (_agreementCoversMonth ? getLastDayFromPH(r.name, r.cin, r.month) : null);
     const _d1=_p(fd), _d2=_p(ld);
     const _mainDays=(_d1&&_d2)?Math.round((_d2-_d1)/86400000)+1:0;
     const _periodsTotal=(_hasPHPeriods&&r.billingPeriods&&r.billingPeriods.length>0)
@@ -9036,7 +9171,10 @@ function togglePHMovedOut(idx, cb) {
 function savePHInvoiceField(idx, val) {
   const clean = val.trim();
   PH_INVOICE_DATA_ARR[idx].invoice = clean;
-  if (/^FL-\d+$/.test(clean)) {
+  if (clean !== '') {
+    PH_INVOICE_DATA_ARR[idx].locked = false;
+  }
+  if (/^FL-\d+PH$/.test(clean)) {
     if (!PH_INVOICE_DATA_ARR[idx].payment || !PH_INVOICE_DATA_ARR[idx].payment.includes('\u2713')) {
       PH_INVOICE_DATA_ARR[idx].payment = '';
     }
