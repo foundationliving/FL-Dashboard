@@ -8551,7 +8551,10 @@ function getExpectedTotal(r) {
   if (r.agreement === 'MANUAL') {
     const d1 = parseDate(r.firstDay), d2 = parseDate(r.lastDay);
     const days = (d1 && d2) ? Math.round((d2 - d1) / 86400000) + 1 : 0;
-    return days * rate;
+    const periodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
+      ? r.billingPeriods.reduce((sum, p) => sum + daysBetweenDates(p.start, p.end) * rate, 0)
+      : (r.priorTotal || 0);
+    return (days * rate) + periodsTotal;
   }
   const hasInvoice = r.invoice && /^FL-\d+$/.test(r.invoice);
   if (hasInvoice) {
@@ -10746,7 +10749,7 @@ function suggestCIN(el, name, currentCin, arrName) {
 
   const nameLower = name.toLowerCase().trim();
   const nameParts = nameLower.split(/\s+/).filter(p => p.length > 2);
-  const arr = arrName === 'PH' ? PH_TRACKER : TRACKER;
+  const arr = arrName === 'PH' ? PH_TRACKER : arrName === 'BR' ? BR_TRACKER : TRACKER;
   const matches = arr.filter(r => {
     const pName = (r['Patient Name'] || '').toLowerCase();
     if (!r['CIN'] || !pName) return false;
@@ -10964,16 +10967,27 @@ function agreementTooltip(name, cin) {
   if (!m) return 'No agreement found';
   const auth = fmtAgDate(m['Auth Date']);
   const exp = fmtAgDate(m['Agreement Exp.']);
-  if (!auth && !exp) return 'Agreement on file — no dates';
-  return 'Agreement: ' + (auth||'?') + ' \u2192 ' + (exp||'?');
+  const base = (!auth && !exp) ? 'Agreement on file — no dates' : 'Agreement: ' + (auth||'?') + ' \u2192 ' + (exp||'?');
+  const notes = (m['Comments']||'').trim();
+  return notes ? base + '\n' + 'Notes: ' + notes : base;
 }
 function phAgreementTooltip(name, cin) {
   const m = phFindTrackerMatch(name, cin);
   if (!m) return 'No agreement found';
   const auth = fmtAgDate(m['Auth Date']);
   const exp = fmtAgDate(m['Agreement Exp.']);
-  if (!auth && !exp) return 'Agreement on file — no dates';
-  return 'Agreement: ' + (auth||'?') + ' \u2192 ' + (exp||'?');
+  const base = (!auth && !exp) ? 'Agreement on file — no dates' : 'Agreement: ' + (auth||'?') + ' \u2192 ' + (exp||'?');
+  const notes = (m['Comments']||'').trim();
+  return notes ? base + '\n' + 'Notes: ' + notes : base;
+}
+function brAgreementTooltip(name, cin) {
+  const m = brFindTrackerMatch(name, cin);
+  if (!m) return 'No agreement found';
+  const auth = fmtAgDate(m['Auth Date']);
+  const exp = fmtAgDate(m['Agreement Exp.']);
+  const base = (!auth && !exp) ? 'Agreement on file — no dates' : 'Agreement: ' + (auth||'?') + ' \u2192 ' + (exp||'?');
+  const notes = (m['Comments']||'').trim();
+  return notes ? base + '\n' + 'Notes: ' + notes : base;
 }
 
 function findTrackerMatch(name, cin) {
@@ -11153,7 +11167,11 @@ function getEffectiveDates(r) {
     return { firstDay: r.firstDay || null, lastDay: r.lastDay || null };
   }
   const s = getAgreementStatus(r.name, r.cin, r.month);
-  if (s !== 'active' && s !== 'expiring') return { firstDay: null, lastDay: null };
+  if (s !== 'active' && s !== 'expiring') {
+    // No active agreement this month — don't auto-fill from the tracker, but still
+    // honor dates the user typed in directly (e.g. billing for previous-month dates).
+    return { firstDay: r.firstDay || null, lastDay: r.lastDay || null };
+  }
   const first = r.firstDay || getAutoFirstDay(r.name, r.cin, r.month);
   const ag = getLastDayFromAgreement(r.name, r.cin, r.month);
   const last = r.lastDay || ag || getAutoLastDay(r.name, r.cin, r.month);
@@ -11208,12 +11226,25 @@ function getDisplayTotal(r) {
   if (!r.invoice && isCoveredByLaterPeriods(r, INVOICE_DATA_ARR)) return 0;
   const rate = r.rate || 99;
 
-  // MANUAL (Quick Add) entries: always recalculate from their own dates — never pull from tracker
+  // Skip-main-period rows only bill their explicit added/prior periods — this applies
+  // regardless of entry type (including MANUAL/Quick Add rows), so check it first.
+  if (r.skipMainPeriod) {
+    const periodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
+      ? r.billingPeriods.reduce((sum, p) => sum + daysBetweenDates(p.start, p.end) * rate, 0)
+      : (r.priorTotal || 0);
+    return periodsTotal;
+  }
+
+  // MANUAL (Quick Add) entries: recalculate from their own dates — never pull from tracker —
+  // but still add any explicit prior/backdated billing periods (previous-month dates) on top.
   if (r.agreement === 'MANUAL') {
     const _p = s => { if (!s) return null; const p = s.split('/'); return p.length === 3 ? new Date(parseInt(p[2].length===2?'20'+p[2]:p[2]), parseInt(p[0])-1, parseInt(p[1])) : null; };
     const _d1 = _p(r.firstDay), _d2 = _p(r.lastDay);
     const _days = (_d1 && _d2) ? Math.round((_d2 - _d1) / 86400000) + 1 : 0;
-    return _days * rate;
+    const _periodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
+      ? r.billingPeriods.reduce((sum, p) => sum + daysBetweenDates(p.start, p.end) * rate, 0)
+      : (r.priorTotal || 0);
+    return (_days * rate) + _periodsTotal;
   }
 
   if (r.total > 0) return r.total;
@@ -11229,12 +11260,6 @@ function getDisplayTotal(r) {
   // If row has an invoice number — always calculate from stored dates + tracker fallback
   // The lock wall above already blocks non-invoiced rows in locked months
   const hasInvoice = r.invoice && /^FL-\d+$/.test(r.invoice);
-  if (r.skipMainPeriod) {
-    const periodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
-      ? r.billingPeriods.reduce((sum, p) => sum + daysBetweenDates(p.start, p.end) * rate, 0)
-      : (r.priorTotal || 0);
-    return periodsTotal;
-  }
   if (hasInvoice) {
     // Only auto-fill main-period dates from the tracker if the agreement actually covers this month
     // AND the user hasn't intentionally cleared the dates to exclude this month.
@@ -11387,7 +11412,7 @@ function renderInvoices() {
         onmouseover="this.style.background='#f0f7ed'"
         onmouseout="if(document.activeElement!==this)this.style.background=''"
         onfocus="this.style.background='#f0f7ed'"
-      >${(()=>{ if(isFLMonthLocked(r.month)&&(!r.invoice||!/^FL-\d+$/.test(r.invoice))&&r.agreement!=='MANUAL') return '—'; if(r.mainDatesCleared) return r.firstDay?formatDate(r.firstDay):'—'; const s=getAgreementStatus(r.name,r.cin,r.month); return (s==='active'||s==='expiring') ? (r.firstDay ? formatDate(r.firstDay) : (getAutoFirstDay(r.name,r.cin,r.month)||'—')) : '—'; })()}</span>
+      >${(()=>{ if(isFLMonthLocked(r.month)&&(!r.invoice||!/^FL-\d+$/.test(r.invoice))&&r.agreement!=='MANUAL') return '—'; if(r.mainDatesCleared) return r.firstDay?formatDate(r.firstDay):'—'; if(r.firstDay) return formatDate(r.firstDay); const s=getAgreementStatus(r.name,r.cin,r.month); return (s==='active'||s==='expiring') ? (getAutoFirstDay(r.name,r.cin,r.month)||'—') : '—'; })()}</span>
     </td>
     <td style="font-size:12px;color:var(--muted)">
       <span contenteditable="true"
@@ -11396,7 +11421,7 @@ function renderInvoices() {
         onmouseover="this.style.background='#f0f7ed'"
         onmouseout="if(document.activeElement!==this)this.style.background=''"
         onfocus="this.style.background='#f0f7ed'"
-      >${(()=>{ if(isFLMonthLocked(r.month)&&(!r.invoice||!/^FL-\d+$/.test(r.invoice))&&r.agreement!=='MANUAL') return '—'; if(r.mainDatesCleared) return r.lastDay?formatDate(r.lastDay):'—'; const s=getAgreementStatus(r.name,r.cin,r.month); if(s!=='active'&&s!=='expiring') return '—'; if(r.lastDay) return formatDate(r.lastDay); const ag=getLastDayFromAgreement(r.name,r.cin,r.month); return ag ? ag : (getAutoLastDay(r.name,r.cin,r.month) || '—');})()}</span>
+      >${(()=>{ if(isFLMonthLocked(r.month)&&(!r.invoice||!/^FL-\d+$/.test(r.invoice))&&r.agreement!=='MANUAL') return '—'; if(r.mainDatesCleared) return r.lastDay?formatDate(r.lastDay):'—'; if(r.lastDay) return formatDate(r.lastDay); const s=getAgreementStatus(r.name,r.cin,r.month); if(s!=='active'&&s!=='expiring') return '—'; const ag=getLastDayFromAgreement(r.name,r.cin,r.month); return ag ? ag : (getAutoLastDay(r.name,r.cin,r.month) || '—');})()}</span>
     </td>
     <td style="font-size:12px;color:var(--muted)">${r.rate?'$'+r.rate:'—'}</td>
     <td class="amount-cell">
@@ -12522,7 +12547,7 @@ function renderPHInvoices() {
       <td style="font-size:12px;color:var(--muted)">${r.rate?'$'+r.rate:'—'}</td>
       <td class="amount-cell">
         <div style="display:flex;align-items:center;gap:4px">
-          <span>${(agStatus==='active'||agStatus==='expiring'||r.skipMainPeriod)&&total>0?'$'+total.toLocaleString():'—'}</span>
+          <span>${(()=>{ const hasPeriods=(r.billingPeriods&&r.billingPeriods.length>0)||r.priorStart; const ok=agStatus==='active'||agStatus==='expiring'||r.skipMainPeriod||hasPeriods||r.agreement==='MANUAL'; return ok&&total>0?'$'+total.toLocaleString():'—'; })()}</span>
           <button class="pencil-btn ${(r.billingPeriods&&r.billingPeriods.length>0)?'has-prior':''}" onclick="openPHPriorModal(${idx});event.stopPropagation()" title="Add/edit billing periods">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3L11 2z"/></svg>
           </button>
@@ -12543,7 +12568,8 @@ function renderPHInvoices() {
       <td>${phStatusDropdown(r,idx)}</td>
       <td style="text-align:center;padding:4px">
         ${(()=>{
-          const invoiced = (agStatus==='active'||agStatus==='expiring')&&total>0 ? total : 0;
+          const hasPeriods2=(r.billingPeriods&&r.billingPeriods.length>0)||r.priorStart;
+          const invoiced = (agStatus==='active'||agStatus==='expiring'||r.skipMainPeriod||hasPeriods2||r.agreement==='MANUAL')&&total>0 ? total : 0;
           if (!invoiced) return '<span style="color:#94a3b8;font-size:11px">—</span>';
           const actual = r.actualPaid != null ? r.actualPaid : invoiced;
           const diff = Math.round((parseFloat(actual) - invoiced) * 100) / 100;
@@ -12784,7 +12810,11 @@ function getBRAutoLastDay(name, cin, month) {
 
 function getBREffectiveDates(r) {
   const s = getBRAgreementStatus(r.name, r.cin, r.month);
-  if (s !== 'active' && s !== 'expiring') return { firstDay: null, lastDay: null };
+  if (s !== 'active' && s !== 'expiring') {
+    // No active agreement this month — don't auto-fill from the tracker, but still
+    // honor dates the user typed in directly (e.g. billing for previous-month dates).
+    return { firstDay: r.firstDay || null, lastDay: r.lastDay || null };
+  }
   const first = r.firstDay || getBRAutoFirstDay(r.name, r.cin, r.month);
   const ag = getBRLastDayFromAgreement(r.name, r.cin, r.month);
   const last = r.lastDay || ag || getBRAutoLastDay(r.name, r.cin, r.month);
@@ -12947,6 +12977,7 @@ function brRenderInvoices() {
           <span title="${r.house||'No house assigned'}" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:3px;font-size:9px;font-weight:800;flex-shrink:0;background:${hc.bg};color:${hc.color};border:1.5px solid ${hc.border}">${houseLetter}</span>
           <span title="${dotTitle}" style="width:9px;height:9px;border-radius:50%;flex-shrink:0;background:${dotColor};display:inline-block"></span>
           <span contenteditable="true" onblur="BR_INVOICE_DATA_ARR[${idx}].name=this.textContent.trim();markUnsaved()"
+            title="${brAgreementTooltip(r.name, r.cin)}"
             style="display:inline-block;outline:none;border-radius:4px;padding:2px 4px;cursor:text;font-weight:500"
             onmouseover="this.style.background='#f0f7ed'" onmouseout="if(document.activeElement!==this)this.style.background=''" onfocus="this.style.background='#f0f7ed'"
           >${r.name||''}</span>
@@ -12956,6 +12987,8 @@ function brRenderInvoices() {
         >${r.note||''}</div>
       </td>
       <td class="cin-cell"><span contenteditable="true" onblur="BR_INVOICE_DATA_ARR[${idx}].cin=this.textContent.trim();markUnsaved()"
+        onpaste="event.preventDefault();var t=event.clipboardData.getData('text/plain').trim();document.execCommand('insertText',false,t);this.style.fontFamily='\'DM Mono\',monospace'"
+        onfocus="this.style.background='#e8f0fe';suggestCIN(this,(BR_INVOICE_DATA_ARR[${idx}]||{}).name||'',this.textContent.trim(),'BR')"
         style="display:block;outline:none;border-radius:4px;padding:2px 4px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);cursor:text"
         onmouseover="this.style.background='#e8f0fe'" onmouseout="if(document.activeElement!==this)this.style.background=''"
       >${r.cin||''}</span></td>
@@ -14640,7 +14673,11 @@ function getPHAutoLastDay(name, cin, month) {
 
 function getPHEffectiveDates(r) {
   const s = getPHAgreementStatus(r.name, r.cin, r.month);
-  if (s !== 'active' && s !== 'expiring') return { firstDay: null, lastDay: null };
+  if (s !== 'active' && s !== 'expiring') {
+    // No active agreement this month — don't auto-fill from the tracker, but still
+    // honor dates the user typed in directly (e.g. billing for previous-month dates).
+    return { firstDay: r.firstDay || null, lastDay: r.lastDay || null };
+  }
   const first = r.firstDay || getPHAutoFirstDay(r.name, r.cin, r.month);
   const ag = getPHLastDayFromAgreement(r.name, r.cin, r.month);
   const last = r.lastDay || ag || getPHAutoLastDay(r.name, r.cin, r.month);
@@ -14663,22 +14700,29 @@ function getPHDisplayTotal(r) {
   if (!r.invoice && isCoveredByLaterPeriods(r, PH_INVOICE_DATA_ARR)) return 0;
   const rate = r.rate || 99;
 
-  // MANUAL entries bypass everything
-  if (r.agreement === 'MANUAL') {
-    const _p = s => { if (!s) return null; const p=s.split('/'); return p.length===3?new Date(parseInt(p[2].length===2?'20'+p[2]:p[2]),parseInt(p[0])-1,parseInt(p[1])):null; };
-    const _d1=_p(r.firstDay), _d2=_p(r.lastDay);
-    const _days=(_d1&&_d2)?Math.round((_d2-_d1)/86400000)+1:0;
-    return _days*rate;
-  }
-
-  // If row has an invoice number, use stored dates + tracker fallback
-  const hasPHInvoice = r.invoice && /^FL-\d+PH$/.test(r.invoice);
+  // Skip-main-period rows only bill their explicit added/prior periods — this applies
+  // regardless of entry type (including MANUAL/Quick Add rows), so check it first.
   if (r.skipMainPeriod) {
     const _periodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
       ? r.billingPeriods.reduce((sum,p)=>sum+daysBetweenDates(p.start,p.end)*rate,0)
       : (r.priorTotal||0);
     return _periodsTotal;
   }
+
+  // MANUAL entries: recalculate from their own dates — but still add any explicit
+  // prior/backdated billing periods (previous-month dates) on top.
+  if (r.agreement === 'MANUAL') {
+    const _p = s => { if (!s) return null; const p=s.split('/'); return p.length===3?new Date(parseInt(p[2].length===2?'20'+p[2]:p[2]),parseInt(p[0])-1,parseInt(p[1])):null; };
+    const _d1=_p(r.firstDay), _d2=_p(r.lastDay);
+    const _days=(_d1&&_d2)?Math.round((_d2-_d1)/86400000)+1:0;
+    const _manualPeriodsTotal = (r.billingPeriods && r.billingPeriods.length > 0)
+      ? r.billingPeriods.reduce((sum,p)=>sum+daysBetweenDates(p.start,p.end)*rate,0)
+      : (r.priorTotal||0);
+    return (_days*rate) + _manualPeriodsTotal;
+  }
+
+  // If row has an invoice number, use stored dates + tracker fallback
+  const hasPHInvoice = r.invoice && /^FL-\d+PH$/.test(r.invoice);
   if (hasPHInvoice) {
     const _p = s => {
       if (!s) return null;
