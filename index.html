@@ -8156,6 +8156,9 @@ function exportHTML() {
   html = html.replace(/let PH_ELIGIBILITY_DATA = \[.*?\];/, 'let PH_ELIGIBILITY_DATA = ' + JSON.stringify(PH_ELIGIBILITY_DATA) + ';');
   html = html.replace(/let PH_TRACKER = \[.*?\];/, 'let PH_TRACKER = ' + JSON.stringify(PH_TRACKER) + ';');
   html = html.replace(/let PH_PAYMENTS = \{.*?\};/, 'let PH_PAYMENTS = ' + JSON.stringify(PH_PAYMENTS) + ';');
+  html = html.replace(/let FL_LOCKED_MONTHS = \{.*?\};/, 'let FL_LOCKED_MONTHS = ' + JSON.stringify(FL_LOCKED_MONTHS) + ';');
+  html = html.replace(/let PH_LOCKED_MONTHS = \{.*?\};/, 'let PH_LOCKED_MONTHS = ' + JSON.stringify(PH_LOCKED_MONTHS) + ';');
+  html = html.replace(/let BR_LOCKED_MONTHS = \{.*?\};/, 'let BR_LOCKED_MONTHS = ' + JSON.stringify(BR_LOCKED_MONTHS) + ';');
   html = html.replace(/let scriptURL = .*?;/, "let scriptURL = '" + scriptURL.replace(/'/g,"\'") + "';");
   const now = new Date();
   const stamp = now.getFullYear() + '-' +
@@ -10833,6 +10836,22 @@ function saveInvoiceField(idx, val) {
 
 
 
+// Placeholder text people type into a CIN field when the real number isn't known yet
+// ("Unknown", "TBD", "cin needed", "xdd", ...). This must NEVER be compared as if it
+// were a real CIN — otherwise any two patients who both typed the same placeholder
+// text would "match" each other and silently borrow one another's agreement dates.
+// A real CIN always mixes letters and digits (e.g. XDJ91523729E, MNL039M96329) and
+// runs at least 6 characters, so instead of chasing every possible placeholder
+// phrase, require that shape — anything letters-only or too short is treated as
+// having no CIN at all, no matter what the placeholder text actually says.
+const CIN_PLACEHOLDER_WORDS = ['unknown','pending','n/a','na','none','tbd','yes','no','?','-','—'];
+function cleanCinValue(raw) {
+  if (!raw) return '';
+  if (CIN_PLACEHOLDER_WORDS.includes(raw)) return '';
+  if (raw.length < 6 || !/[0-9]/.test(raw)) return '';
+  return raw;
+}
+
 function getAgreementStatus(name, cin, month) {
   if (!name) return 'none';
   // MANUAL entries bypass tracker lookup — treat as active
@@ -10843,7 +10862,7 @@ function getAgreementStatus(name, cin, month) {
   const nameLower = name.toLowerCase().trim();
   const nameParts = nameLower.split(' ');
   const lastName = nameParts[nameParts.length - 1];
-  const cinClean = (cin || '').replace(/[^a-zA-Z0-9]/g, '').replace(/^xdj/i, '').toLowerCase();
+  const cinClean = cleanCinValue((cin || '').replace(/[^a-zA-Z0-9]/g, '').replace(/^xdj/i, '').toLowerCase());
 
   const findInArr = (arr) => arr.find(r => {
     if (!r['Patient Name']) return false;
@@ -10994,7 +11013,7 @@ function findTrackerMatch(name, cin) {
   const nameLower = (name||'').toLowerCase().trim();
   const nameParts = nameLower.split(' ');
   const lastName = nameParts[nameParts.length-1];
-  const cinClean = (cin||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,'');
+  const cinClean = cleanCinValue((cin||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,''));
 
   return [...TRACKER, ...(COMPLETED||[])].find(r => {
     if (!r['Patient Name']) return false;
@@ -11015,7 +11034,7 @@ function findPHTrackerMatch(name, cin) {
   const nameParts = nameLower.split(' ').filter(Boolean);
   const lastName = nameParts[nameParts.length-1];
   const firstName = nameParts[0];
-  const cinClean = (cin||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,'');
+  const cinClean = cleanCinValue((cin||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,''));
 
   const searchIn = [...(PH_TRACKER||[]), ...(TRACKER||[])];
 
@@ -11129,7 +11148,7 @@ function getLastDayFromAgreement(name, cin, month) {
   const nameLower = (name || '').toLowerCase().trim();
   const nameParts = nameLower.split(' ');
   const lastName = nameParts[nameParts.length - 1];
-  const cinClean = (cin || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,'');
+  const cinClean = cleanCinValue((cin || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,''));
 
   const match = [...TRACKER, ...(COMPLETED||[])].find(r => {
     if (!r['Patient Name']) return false;
@@ -11543,6 +11562,20 @@ function addPriorPeriodRow(start, end) {
 
 function updatePriorTotal() {
   const rows = document.querySelectorAll('.prior-period-row');
+  const pov = document.getElementById('prior-modal-overlay');
+  const el = document.getElementById('prior-total-display');
+  if (pov && pov.getAttribute('data-br-mode') === '1') {
+    // Bedrock bills flat per period, not by day count
+    let periodCount = 0;
+    rows.forEach(row => {
+      const s = row.querySelector('.pp-start').value.trim();
+      const e = row.querySelector('.pp-end').value.trim();
+      if (s && e) periodCount++;
+    });
+    const total = periodCount * BR_RATE;
+    if (el) el.textContent = periodCount + ' period' + (periodCount!==1?'s':'') + ' — $' + fmtAmt(total) + ' (flat $' + BR_RATE.toLocaleString() + '/period)';
+    return;
+  }
   let totalDays = 0;
   rows.forEach(row => {
     const s = row.querySelector('.pp-start').value.trim();
@@ -11553,7 +11586,6 @@ function updatePriorTotal() {
     }
   });
   const total = totalDays * 99;
-  const el = document.getElementById('prior-total-display');
   if (el) el.textContent = totalDays + ' days — $' + fmtAmt(total);
 }
 
@@ -11616,7 +11648,7 @@ function removePrior() {
 }
 function closePriorModal() {
   const pov = document.getElementById('prior-modal-overlay');
-  if (pov) { pov.style.cssText = 'display:none'; pov.removeAttribute('data-ph-mode'); }
+  if (pov) { pov.style.cssText = 'display:none'; pov.removeAttribute('data-ph-mode'); pov.removeAttribute('data-br-mode'); }
 }
 
 // ── PH Prior / Billing Periods Modal ─────────────────────────────────────────
@@ -11676,11 +11708,65 @@ function savePHPrior() {
   renderPH();
 }
 
+// ── BR Prior / Billing Periods Modal ─────────────────────────────────────────
+// Bedrock bills a flat $1,400/month rather than a daily rate, so each added
+// period here is a flat BR_RATE charge, not a day-counted amount like FL/PH.
+let brPriorEditIndex = null;
+
+function toggleSkipMainPeriodBR(idx) {
+  const r = BR_INVOICE_DATA_ARR[idx];
+  if (!r) return;
+  r.skipMainPeriod = !r.skipMainPeriod;
+  markUnsaved();
+  brRenderInvoices();
+  brRenderStats();
+  showToast(r.skipMainPeriod ? '✓ Now billing only the added periods for ' + r.name : '✓ Restored normal billing for ' + r.name);
+}
+
+function openBRPriorModal(idx) {
+  brPriorEditIndex = idx;
+  const r = BR_INVOICE_DATA_ARR[idx];
+  if (!r) return;
+  document.getElementById('prior-modal-patient').textContent = r.name + ' — ' + r.month + ' (Bedrock — flat $' + BR_RATE.toLocaleString() + '/period)';
+  const periods = r.billingPeriods && r.billingPeriods.length > 0
+    ? JSON.parse(JSON.stringify(r.billingPeriods))
+    : [];
+  renderPriorPeriods(periods);
+  const pov = document.getElementById('prior-modal-overlay');
+  document.body.appendChild(pov);
+  pov.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2000;align-items:center;justify-content:center';
+  pov.setAttribute('data-br-mode', '1');
+  updatePriorTotal();
+}
+
+function saveBRPrior() {
+  const r = BR_INVOICE_DATA_ARR[brPriorEditIndex];
+  if (!r) return;
+  const rows = document.querySelectorAll('.prior-period-row');
+  const periods = [];
+  rows.forEach(row => {
+    const s = row.querySelector('.pp-start').value.trim();
+    const e = row.querySelector('.pp-end').value.trim();
+    if (s && e) periods.push({ start: s, end: e });
+  });
+  if (periods.length > 0) r.billingPeriods = periods;
+  else delete r.billingPeriods;
+  document.getElementById('prior-modal-overlay').style.display = 'none';
+  document.getElementById('prior-modal-overlay').removeAttribute('data-br-mode');
+  markUnsaved();
+  syncNow();
+  showToast('Billing periods saved');
+  brRenderInvoices();
+  brRenderStats();
+}
+
 // Override the save button behavior based on mode
 function saveAnyPrior() {
   const pov = document.getElementById('prior-modal-overlay');
   if (pov && pov.getAttribute('data-ph-mode') === '1') {
     savePHPrior();
+  } else if (pov && pov.getAttribute('data-br-mode') === '1') {
+    saveBRPrior();
   } else {
     savePrior();
   }
@@ -12709,7 +12795,7 @@ function brFindTrackerMatch(name, cin) {
   const nameLower = (name||'').toLowerCase().trim();
   const nameParts = nameLower.split(' ');
   const lastName = nameParts[nameParts.length-1];
-  const cinClean = (cin||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,'');
+  const cinClean = cleanCinValue((cin||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,''));
   return [...BR_TRACKER, ...(BR_COMPLETED||[])].find(r => {
     if (!r['Patient Name']) return false;
     if (cinClean && r['CIN']) {
@@ -12830,7 +12916,7 @@ function brRenderPills() {
     const locked = isBRMonthLocked(m);
     const badge = locked
       ? `<span onclick="if(confirm('Unlock Bedrock ${m}?'))unlockBRMonth('${m}')" title="Click to unlock ${m}" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔒</span>`
-      : '';
+      : (m !== brActiveMonth ? '' : `<span onclick="event.stopPropagation();if(confirm('Re-lock Bedrock ${m}?'))lockBRMonth('${m}')" title="Click to re-lock ${m}" style="position:absolute;top:-6px;right:-6px;background:#f0f2f5;color:#5d6b82;border:1px solid #dde2ea;border-radius:10px;font-size:9px;padding:1px 5px;font-weight:700;cursor:pointer;z-index:1">🔓</span>`);
     return `<span style="position:relative;display:inline-block"><button class="pill${m===brActiveMonth?' active':''}" onclick="brActiveMonth='${m}';brRenderPills()">${m}</button>${badge}</span>`;
   }).join('');
   brRenderInvoices();
@@ -12839,10 +12925,18 @@ function brRenderPills() {
 
 function lockBRMonth(month) {
   BR_LOCKED_MONTHS[month] = true;
+  BR_INVOICE_DATA_ARR.forEach(r => {
+    if (r.month !== month) return;
+    const hasInvoice = r.invoice && /^FL-\d+BR$/.test(r.invoice);
+    const hasPeriods = (r.billingPeriods && r.billingPeriods.length > 0) || r.priorStart;
+    const hasAmount = getBRDisplayTotal(r) > 0;
+    if (!hasInvoice && !hasPeriods && !hasAmount && r.agreement !== 'MANUAL') r.locked = true;
+  });
   markUnsaved(); syncNow(); brRenderPills();
 }
 function unlockBRMonth(month) {
   delete BR_LOCKED_MONTHS[month];
+  BR_INVOICE_DATA_ARR.forEach(r => { if (r.month === month) delete r.locked; });
   markUnsaved(); syncNow(); brRenderPills();
   showToast('🔓 Bedrock ' + month + ' unlocked');
 }
@@ -12850,9 +12944,9 @@ function unlockBRMonth(month) {
 function brRenderStats() {
   const rows = BR_INVOICE_DATA_ARR.filter(r => r.month === brActiveMonth);
   const invoicedRows = rows.filter(r => r.invoice && /^FL-\d+BR$/.test(r.invoice));
-  const gross = invoicedRows.length * BR_RATE;
+  const gross = invoicedRows.reduce((sum, r) => sum + getBRDisplayTotal(r), 0);
   const paidRows = invoicedRows.filter(r => r.payment === '\u2713 Paid');
-  const paidTotal = paidRows.length * BR_RATE;
+  const paidTotal = paidRows.reduce((sum, r) => sum + getBRDisplayTotal(r), 0);
   const balance = gross - paidTotal;
   const el = document.getElementById('br-stats-bar');
   if (!el) return;
@@ -12914,6 +13008,23 @@ function changeBRStatus(idx, val) {
   markUnsaved(); brRenderInvoices(); brRenderStats();
 }
 
+function getBRDisplayTotal(r) {
+  const hasInv = r.invoice && /^FL-\d+BR$/.test(r.invoice);
+  const locked = isBRMonthLocked(r.month);
+  const hasPeriods = r.billingPeriods && r.billingPeriods.length > 0;
+  // Bedrock bills a flat $1,400/month rather than by day, so each added prior
+  // period is a flat BR_RATE charge (not a day-counted amount like FL/PH).
+  const periodsTotal = hasPeriods ? r.billingPeriods.length * BR_RATE : 0;
+
+  if (r.skipMainPeriod) return periodsTotal;
+  if (hasInv) return BR_RATE + periodsTotal;
+  if (locked) return periodsTotal;
+
+  const agStatus = getBRAgreementStatus(r.name, r.cin, r.month);
+  const mainTotal = (agStatus === 'active' || agStatus === 'expiring') ? BR_RATE : 0;
+  return mainTotal + periodsTotal;
+}
+
 function brRenderInvoices() {
   updateBRNextInvoice();
   const rows = [...BR_INVOICE_DATA_ARR].filter(r => r.month === brActiveMonth);
@@ -12957,9 +13068,10 @@ function brRenderInvoices() {
     const { firstDay: effFirst, lastDay: effLast } = getBREffectiveDates(r);
     const shownFirst = r.firstDay ? formatDate(r.firstDay) : ((agStatus==='active'||agStatus==='expiring') ? (effFirst||'—') : '—');
     const shownLast = r.lastDay ? formatDate(r.lastDay) : ((agStatus==='active'||agStatus==='expiring') ? (getBRLastDayFromAgreement(r.name,r.cin,r.month)||(effLast||'—')) : '—');
-    // Amount: invoiced rows always show BR_RATE (invoice # freezes billing, same as FL/PH).
-    // Locked months without an invoice number show nothing — prevents late agreement edits from changing a billed month.
-    const showAmt = hasInv ? BR_RATE : (locked ? 0 : ((agStatus==='active'||agStatus==='expiring') ? BR_RATE : 0));
+    // Amount: invoiced rows always show BR_RATE (invoice # freezes billing, same as FL/PH),
+    // plus a flat BR_RATE for each added prior/backdated period.
+    // Locked months without an invoice number or explicit period show nothing.
+    const showAmt = getBRDisplayTotal(r);
     const hc = BR_HOUSE_COLOR[r.house] || {bg:'#f1f5f9',color:'#94a3b8',border:'#e2e8f0'};
     const houseLetter = BR_HOUSE_ABBR[r.house] || '·';
     const dotColor = agStatus==='active'?'#22c55e':agStatus==='expiring'?'#eab308':'#ef4444';
@@ -13015,7 +13127,21 @@ function brRenderInvoices() {
         >${shownLast}</span>
       </td>
       <td class="amount-cell">
-        <span style="font-weight:600;color:${showAmt>0?'#1e6b3d':'#94a3b8'}">${showAmt>0?'$'+showAmt.toLocaleString():'—'}</span>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-weight:600;color:${showAmt>0?'#1e6b3d':'#94a3b8'}">${showAmt>0?'$'+showAmt.toLocaleString():'—'}</span>
+          <button class="pencil-btn ${(r.billingPeriods&&r.billingPeriods.length>0)?'has-prior':''}" onclick="openBRPriorModal(${idx});event.stopPropagation()" title="Add/edit billing periods">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3L11 2z"/></svg>
+          </button>
+          <button class="pencil-btn${r.skipMainPeriod?' has-prior':''}" onclick="event.stopPropagation();toggleSkipMainPeriodBR(${idx})" title="${r.skipMainPeriod?'Billing periods only — click to restore this month’s auto amount':'Click to bill ONLY the added periods, skip this month’s charge'}" style="${r.skipMainPeriod?'color:#c05621':''}">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+          </button>
+        </div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px">${(()=>{
+          const periods=r.billingPeriods&&r.billingPeriods.length>0?r.billingPeriods:[];
+          if (!periods.length) return '';
+          const fmt=s=>{const p=s.split('/');return p[0]+'/'+p[1];};
+          return periods.map(p=>fmt(p.start)+'–'+fmt(p.end)+' (flat $'+BR_RATE.toLocaleString()+')').join(' · ');
+        })()}</div>
       </td>
       <td style="text-align:center;padding:4px">
         ${(()=>{
@@ -14570,7 +14696,7 @@ function phFindTrackerMatch(name, cin) {
   const nameLower = (name||'').toLowerCase().trim();
   const nameParts = nameLower.split(' ');
   const lastName = nameParts[nameParts.length-1];
-  const cinClean = (cin||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,'');
+  const cinClean = cleanCinValue((cin||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase().replace(/^xdj/,'').replace(/^mnl/,''));
   return [...PH_TRACKER, ...(PH_COMPLETED||[])].find(r => {
     if (!r['Patient Name']) return false;
     if (cinClean && r['CIN']) {
